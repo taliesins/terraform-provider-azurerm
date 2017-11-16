@@ -2,6 +2,7 @@ package azurerm
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -94,5 +95,24 @@ func resourceArmApplicationSecurityGroupRead(d *schema.ResourceData, meta interf
 }
 
 func resourceArmApplicationSecurityGroupDelete(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*ArmClient).applicationSecurityGroupsClient
+	id, err := parseAzureResourceID(d.Id())
+	if err != nil {
+		return err
+	}
+	resourceGroup := id.ResourceGroup
+	name := id.Path["applicationSecurityGroups"]
+
+	log.Printf("[DEBUG] Deleting Application Security Group %q (resource group %q)", name, resourceGroup)
+
+	deleteResp, deleteErr := client.Delete(resourceGroup, name, make(chan struct{}))
+	resp := <-deleteResp
+	err = <-deleteErr
+	if err != nil {
+		if !utils.ResponseWasNotFound(resp) {
+			return fmt.Errorf("Error issuing delete request for Application Security Group %q (Resource Group %q): %+v", name, resourceGroup, err)
+		}
+	}
+
 	return nil
 }
