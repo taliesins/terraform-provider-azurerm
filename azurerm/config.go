@@ -73,24 +73,8 @@ type ArmClient struct {
 	automationCredentialClient automation.CredentialClient
 	automationScheduleClient   automation.ScheduleClient
 
-	applicationGatewayClient     network.ApplicationGatewaysClient
-	ifaceClient                  network.InterfacesClient
-	expressRouteCircuitClient    network.ExpressRouteCircuitsClient
-	loadBalancerClient           network.LoadBalancersClient
-	localNetConnClient           network.LocalNetworkGatewaysClient
-	publicIPClient               network.PublicIPAddressesClient
-	secGroupClient               network.SecurityGroupsClient
-	secRuleClient                network.SecurityRulesClient
-	subnetClient                 network.SubnetsClient
-	netUsageClient               network.UsagesClient
-	vnetGatewayConnectionsClient network.VirtualNetworkGatewayConnectionsClient
-	vnetGatewayClient            network.VirtualNetworkGatewaysClient
-	vnetClient                   network.VirtualNetworksClient
-	vnetPeeringsClient           network.VirtualNetworkPeeringsClient
-	routeTablesClient            network.RouteTablesClient
-	routesClient                 network.RoutesClient
-	dnsClient                    dns.RecordSetsClient
-	zonesClient                  dns.ZonesClient
+	dnsClient   dns.RecordSetsClient
+	zonesClient dns.ZonesClient
 
 	cdnProfilesClient  cdn.ProfilesClient
 	cdnEndpointsClient cdn.EndpointsClient
@@ -160,6 +144,24 @@ type ArmClient struct {
 	sqlElasticPoolsClient          sql.ElasticPoolsClient
 	sqlFirewallRulesClient         sql.FirewallRulesClient
 	sqlServersClient               sql.ServersClient
+
+	// Network
+	applicationSecurityGroupsClient network.ApplicationSecurityGroupsClient
+	applicationGatewayClient        network.ApplicationGatewaysClient
+	ifaceClient                     network.InterfacesClient
+	expressRouteCircuitClient       network.ExpressRouteCircuitsClient
+	loadBalancerClient              network.LoadBalancersClient
+	localNetConnClient              network.LocalNetworkGatewaysClient
+	publicIPClient                  network.PublicIPAddressesClient
+	secGroupClient                  network.SecurityGroupsClient
+	secRuleClient                   network.SecurityRulesClient
+	subnetClient                    network.SubnetsClient
+	vnetGatewayConnectionsClient    network.VirtualNetworkGatewayConnectionsClient
+	vnetGatewayClient               network.VirtualNetworkGatewaysClient
+	vnetClient                      network.VirtualNetworksClient
+	vnetPeeringsClient              network.VirtualNetworkPeeringsClient
+	routeTablesClient               network.RouteTablesClient
+	routesClient                    network.RoutesClient
 }
 
 func withRequestLogging() autorest.SendDecorator {
@@ -333,12 +335,6 @@ func (c *Config) getArmClient() (*ArmClient, error) {
 	vmc.Sender = sender
 	client.vmClient = vmc
 
-	agc := network.NewApplicationGatewaysClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&agc.Client)
-	agc.Authorizer = auth
-	agc.Sender = sender
-	client.applicationGatewayClient = agc
-
 	crc := containerregistry.NewRegistriesClientWithBaseURI(endpoint, c.SubscriptionID)
 	setUserAgent(&crc.Client)
 	crc.Authorizer = auth
@@ -393,95 +389,11 @@ func (c *Config) getArmClient() (*ArmClient, error) {
 	ehnc.Sender = sender
 	client.eventHubNamespacesClient = ehnc
 
-	ifc := network.NewInterfacesClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&ifc.Client)
-	ifc.Authorizer = auth
-	ifc.Sender = sender
-	client.ifaceClient = ifc
-
-	erc := network.NewExpressRouteCircuitsClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&erc.Client)
-	erc.Authorizer = auth
-	erc.Sender = sender
-	client.expressRouteCircuitClient = erc
-
-	lbc := network.NewLoadBalancersClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&lbc.Client)
-	lbc.Authorizer = auth
-	lbc.Sender = sender
-	client.loadBalancerClient = lbc
-
-	lgc := network.NewLocalNetworkGatewaysClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&lgc.Client)
-	lgc.Authorizer = auth
-	lgc.Sender = sender
-	client.localNetConnClient = lgc
-
 	opwc := operationalinsights.NewWorkspacesClient(c.SubscriptionID)
 	setUserAgent(&opwc.Client)
 	opwc.Authorizer = auth
 	opwc.Sender = autorest.CreateSender(withRequestLogging())
 	client.workspacesClient = opwc
-
-	pipc := network.NewPublicIPAddressesClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&pipc.Client)
-	pipc.Authorizer = auth
-	pipc.Sender = sender
-	client.publicIPClient = pipc
-
-	sgc := network.NewSecurityGroupsClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&sgc.Client)
-	sgc.Authorizer = auth
-	sgc.Sender = sender
-	client.secGroupClient = sgc
-
-	src := network.NewSecurityRulesClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&src.Client)
-	src.Authorizer = auth
-	src.Sender = sender
-	client.secRuleClient = src
-
-	snc := network.NewSubnetsClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&snc.Client)
-	snc.Authorizer = auth
-	snc.Sender = sender
-	client.subnetClient = snc
-
-	vgcc := network.NewVirtualNetworkGatewayConnectionsClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&vgcc.Client)
-	vgcc.Authorizer = auth
-	vgcc.Sender = sender
-	client.vnetGatewayConnectionsClient = vgcc
-
-	vgc := network.NewVirtualNetworkGatewaysClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&vgc.Client)
-	vgc.Authorizer = auth
-	vgc.Sender = sender
-	client.vnetGatewayClient = vgc
-
-	vnc := network.NewVirtualNetworksClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&vnc.Client)
-	vnc.Authorizer = auth
-	vnc.Sender = sender
-	client.vnetClient = vnc
-
-	vnpc := network.NewVirtualNetworkPeeringsClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&vnpc.Client)
-	vnpc.Authorizer = auth
-	vnpc.Sender = sender
-	client.vnetPeeringsClient = vnpc
-
-	rtc := network.NewRouteTablesClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&rtc.Client)
-	rtc.Authorizer = auth
-	rtc.Sender = sender
-	client.routeTablesClient = rtc
-
-	rc := network.NewRoutesClientWithBaseURI(endpoint, c.SubscriptionID)
-	setUserAgent(&rc.Client)
-	rc.Authorizer = auth
-	rc.Sender = sender
-	client.routesClient = rc
 
 	dn := dns.NewRecordSetsClientWithBaseURI(endpoint, c.SubscriptionID)
 	setUserAgent(&dn.Client)
@@ -655,6 +567,7 @@ func (c *Config) getArmClient() (*ArmClient, error) {
 	client.registerDatabases(endpoint, c.SubscriptionID, auth, sender)
 	client.registerDisks(endpoint, c.SubscriptionID, auth, sender)
 	client.registerKeyVaultClients(endpoint, c.SubscriptionID, auth, keyVaultAuth, sender)
+	client.registerNetworkClients(endpoint, c.SubscriptionID, auth, sender)
 	client.registerRedisClients(endpoint, c.SubscriptionID, auth, sender)
 
 	return &client, nil
@@ -783,6 +696,104 @@ func (c *ArmClient) registerKeyVaultClients(endpoint, subscriptionId string, aut
 	keyVaultManagementClient.Authorizer = keyVaultAuth
 	keyVaultManagementClient.Sender = sender
 	c.keyVaultManagementClient = keyVaultManagementClient
+}
+
+func (c *ArmClient) registerNetworkClients(endpoint, subscriptionId string, auth autorest.Authorizer, sender autorest.Sender) {
+	appGatewaysClient := network.NewApplicationGatewaysClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&appGatewaysClient.Client)
+	appGatewaysClient.Authorizer = auth
+	appGatewaysClient.Sender = sender
+	c.applicationGatewayClient = appGatewaysClient
+
+	appSecurityGroupsClient := network.NewApplicationSecurityGroupsClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&appSecurityGroupsClient.Client)
+	appSecurityGroupsClient.Authorizer = auth
+	appSecurityGroupsClient.Sender = sender
+	c.applicationSecurityGroupsClient = appSecurityGroupsClient
+
+	ercClient := network.NewExpressRouteCircuitsClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&ercClient.Client)
+	ercClient.Authorizer = auth
+	ercClient.Sender = sender
+	c.expressRouteCircuitClient = ercClient
+
+	nicClient := network.NewInterfacesClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&nicClient.Client)
+	nicClient.Authorizer = auth
+	nicClient.Sender = sender
+	c.ifaceClient = nicClient
+
+	lbClient := network.NewLoadBalancersClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&lbClient.Client)
+	lbClient.Authorizer = auth
+	lbClient.Sender = sender
+	c.loadBalancerClient = lbClient
+
+	lngClient := network.NewLocalNetworkGatewaysClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&lngClient.Client)
+	lngClient.Authorizer = auth
+	lngClient.Sender = sender
+	c.localNetConnClient = lngClient
+
+	pipClient := network.NewPublicIPAddressesClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&pipClient.Client)
+	pipClient.Authorizer = auth
+	pipClient.Sender = sender
+	c.publicIPClient = pipClient
+
+	nsgClient := network.NewSecurityGroupsClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&nsgClient.Client)
+	nsgClient.Authorizer = auth
+	nsgClient.Sender = sender
+	c.secGroupClient = nsgClient
+
+	src := network.NewSecurityRulesClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&src.Client)
+	src.Authorizer = auth
+	src.Sender = sender
+	c.secRuleClient = src
+
+	subnetsClient := network.NewSubnetsClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&subnetsClient.Client)
+	subnetsClient.Authorizer = auth
+	subnetsClient.Sender = sender
+	c.subnetClient = subnetsClient
+
+	vncCClient := network.NewVirtualNetworkGatewayConnectionsClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&vncCClient.Client)
+	vncCClient.Authorizer = auth
+	vncCClient.Sender = sender
+	c.vnetGatewayConnectionsClient = vncCClient
+
+	vngClient := network.NewVirtualNetworkGatewaysClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&vngClient.Client)
+	vngClient.Authorizer = auth
+	vngClient.Sender = sender
+	c.vnetGatewayClient = vngClient
+
+	virtualNetworksClient := network.NewVirtualNetworksClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&virtualNetworksClient.Client)
+	virtualNetworksClient.Authorizer = auth
+	virtualNetworksClient.Sender = sender
+	c.vnetClient = virtualNetworksClient
+
+	vnetPeeringsClient := network.NewVirtualNetworkPeeringsClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&vnetPeeringsClient.Client)
+	vnetPeeringsClient.Authorizer = auth
+	vnetPeeringsClient.Sender = sender
+	c.vnetPeeringsClient = vnetPeeringsClient
+
+	routeTablesClient := network.NewRouteTablesClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&routeTablesClient.Client)
+	routeTablesClient.Authorizer = auth
+	routeTablesClient.Sender = sender
+	c.routeTablesClient = routeTablesClient
+
+	routesClient := network.NewRoutesClientWithBaseURI(endpoint, subscriptionId)
+	setUserAgent(&routesClient.Client)
+	routesClient.Authorizer = auth
+	routesClient.Sender = sender
+	c.routesClient = routesClient
 }
 
 func (c *ArmClient) registerRedisClients(endpoint, subscriptionId string, auth autorest.Authorizer, sender autorest.Sender) {
