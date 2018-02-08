@@ -93,6 +93,7 @@ The following arguments are supported:
 * `count` - (Required) Number of agents (VMs) to host docker containers. Allowed values must be in the range of 1 to 50 (inclusive). The default value is 1.
 * `vm_size` - (Required) The VM Size of each of the Agent Pool VM's (e.g. Standard_F1 / Standard_D2v2).
 * `storage_profile` - (Optional) Storage profile specifies what kind of storage used. Choose from StorageAccount and ManagedDisks. Leave it empty, we will choose for you based on the orchestrator choice.
+* `vnet_subnet_id` - (Optional) The subnet to place the Agent Pool VM's in.
 * `os_type` - (Optional) OsType to be used to specify os type. Choose from Linux and Windows. Default to Linux.
 
 `service_principal` supports the following:
