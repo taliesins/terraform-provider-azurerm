@@ -27,6 +27,7 @@ resource "azurerm_kubernetes_cluster" "test" {
   location               = "${azurerm_resource_group.test.location}"
   resource_group_name    = "${azurerm_resource_group.test.name}"
   kubernetes_version     = "1.8.2"
+  dns_prefix             = "acctestagent1"
 
   linux_profile {
     admin_username = "acctestuser1"
@@ -39,7 +40,6 @@ resource "azurerm_kubernetes_cluster" "test" {
   agent_pool_profile {
     name            = "default"
     count           = 1
-    dns_prefix      = "acctestagent1"
     vm_size         = "Standard_A0"
     storage_profile = "ManagedDisks"
     os_type         = "Linux"
