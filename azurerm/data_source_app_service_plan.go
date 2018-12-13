@@ -10,9 +10,6 @@ import (
 func dataSourceAppServicePlan() *schema.Resource {
 	return &schema.Resource{
 		Read: dataSourceAppServicePlanRead,
-		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
-		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -55,6 +52,10 @@ func dataSourceAppServicePlan() *schema.Resource {
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"app_service_environment_id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 						"reserved": {
 							Type:     schema.TypeBool,
 							Computed: true,
@@ -86,31 +87,35 @@ func dataSourceAppServicePlanRead(d *schema.ResourceData, meta interface{}) erro
 	ctx := meta.(*ArmClient).StopContext
 	resp, err := client.Get(ctx, resourceGroup, name)
 	if err != nil {
-		if utils.ResponseWasNotFound(resp.Response) {
-			d.SetId("")
-			return nil
-		}
-
 		return fmt.Errorf("Error making Read request on App Service Plan %q (Resource Group %q): %+v", name, resourceGroup, err)
+	}
+
+	if utils.ResponseWasNotFound(resp.Response) {
+		return fmt.Errorf("Error: App Service Plan %q (Resource Group %q) was not found", name, resourceGroup)
 	}
 
 	d.SetId(*resp.ID)
 
 	d.Set("name", name)
 	d.Set("resource_group_name", resourceGroup)
-	d.Set("location", azureRMNormalizeLocation(*resp.Location))
 	d.Set("kind", resp.Kind)
 
+	if location := resp.Location; location != nil {
+		d.Set("location", azureRMNormalizeLocation(*location))
+	}
+
 	if props := resp.AppServicePlanProperties; props != nil {
-		d.Set("properties", flattenAppServiceProperties(props))
+		if err := d.Set("properties", flattenAppServiceProperties(props)); err != nil {
+			return fmt.Errorf("Error setting `properties`: %+v", err)
+		}
 
 		if props.MaximumNumberOfWorkers != nil {
 			d.Set("maximum_number_of_workers", int(*props.MaximumNumberOfWorkers))
 		}
 	}
 
-	if sku := resp.Sku; sku != nil {
-		d.Set("sku", flattenAppServicePlanSku(sku))
+	if err := d.Set("sku", flattenAppServicePlanSku(resp.Sku)); err != nil {
+		return fmt.Errorf("Error setting `sku`: %+v", err)
 	}
 
 	flattenAndSetTags(d, resp.Tags)

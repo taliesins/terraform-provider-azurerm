@@ -1,14 +1,14 @@
 ---
 layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_eventhub"
-sidebar_current: "docs-azurerm-resource-eventhub"
+sidebar_current: "docs-azurerm-resource-messaging-eventhub"
 description: |-
-  Creates a new Event Hubs as a nested resource within an Event Hubs namespace.
+  Manages a Event Hubs as a nested resource within an Event Hubs namespace.
 ---
 
 # azurerm_eventhub
 
-Creates a new Event Hubs as a nested resource within a Event Hubs namespace.
+Manages a Event Hubs as a nested resource within a Event Hubs namespace.
 
 ## Example Usage
 
@@ -49,7 +49,7 @@ The following arguments are supported:
 
 * `resource_group_name` - (Required) The name of the resource group in which the EventHub's parent Namespace exists. Changing this forces a new resource to be created.
 
-* `partition_count` - (Required) Specifies the current number of shards on the Event Hub.
+* `partition_count` - (Required) Specifies the current number of shards on the Event Hub. Changing this forces a new resource to be created.
 
 * `message_retention` - (Required) Specifies the number of days to retain the events for this Event Hub. Needs to be between 1 and 7 days; or 1 day when using a Basic SKU for the parent EventHub Namespace.
 

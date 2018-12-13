@@ -11,7 +11,9 @@ import (
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/suppress"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -31,9 +33,10 @@ func resourceArmEventHubNamespace() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateEventHubNamespaceName(),
 			},
 
 			"location": locationSchema(),
@@ -41,13 +44,13 @@ func resourceArmEventHubNamespace() *schema.Resource {
 			"resource_group_name": resourceGroupNameSchema(),
 
 			"sku": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:             schema.TypeString,
+				Required:         true,
+				DiffSuppressFunc: suppress.CaseDifference,
 				ValidateFunc: validation.StringInSlice([]string{
 					string(eventhub.Basic),
 					string(eventhub.Standard),
 				}, true),
-				DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
 			},
 
 			"capacity": {
@@ -67,27 +70,31 @@ func resourceArmEventHubNamespace() *schema.Resource {
 				Type:         schema.TypeInt,
 				Optional:     true,
 				Computed:     true,
-				ValidateFunc: validation.IntBetween(1, 20),
+				ValidateFunc: validation.IntBetween(0, 20),
 			},
 
 			"default_primary_connection_string": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 
 			"default_secondary_connection_string": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 
 			"default_primary_key": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 
 			"default_secondary_key": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 
 			"tags": tagsSchema(),
@@ -101,7 +108,7 @@ func resourceArmEventHubNamespaceCreate(d *schema.ResourceData, meta interface{}
 	log.Printf("[INFO] preparing arguments for AzureRM EventHub Namespace creation.")
 
 	name := d.Get("name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	resGroup := d.Get("resource_group_name").(string)
 	sku := d.Get("sku").(string)
 	capacity := int32(d.Get("capacity").(int))
@@ -123,8 +130,7 @@ func resourceArmEventHubNamespaceCreate(d *schema.ResourceData, meta interface{}
 	}
 
 	if v, ok := d.GetOk("maximum_throughput_units"); ok {
-		maximumThroughputUnits := v.(int)
-		parameters.EHNamespaceProperties.MaximumThroughputUnits = utils.Int32(int32(maximumThroughputUnits))
+		parameters.EHNamespaceProperties.MaximumThroughputUnits = utils.Int32(int32(v.(int)))
 	}
 
 	future, err := client.CreateOrUpdate(ctx, resGroup, name, parameters)
@@ -132,8 +138,7 @@ func resourceArmEventHubNamespaceCreate(d *schema.ResourceData, meta interface{}
 		return err
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error creating eventhub namespace: %+v", err)
 	}
 
@@ -172,8 +177,11 @@ func resourceArmEventHubNamespaceRead(d *schema.ResourceData, meta interface{}) 
 	}
 
 	d.Set("name", resp.Name)
-	d.Set("location", azureRMNormalizeLocation(*resp.Location))
 	d.Set("resource_group_name", resGroup)
+	if location := resp.Location; location != nil {
+		d.Set("location", azureRMNormalizeLocation(*location))
+	}
+
 	d.Set("sku", string(resp.Sku.Name))
 	d.Set("capacity", resp.Sku.Capacity)
 

@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/dns/mgmt/2016-04-01/dns"
+	"github.com/Azure/azure-sdk-for-go/services/preview/dns/mgmt/2018-03-01-preview/dns"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
 func resourceArmDnsCNameRecord() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmDnsCNameRecordCreateOrUpdate,
+		Create: resourceArmDnsCNameRecordCreateUpdate,
 		Read:   resourceArmDnsCNameRecordRead,
-		Update: resourceArmDnsCNameRecordCreateOrUpdate,
+		Update: resourceArmDnsCNameRecordCreateUpdate,
 		Delete: resourceArmDnsCNameRecordDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -56,7 +56,7 @@ func resourceArmDnsCNameRecord() *schema.Resource {
 	}
 }
 
-func resourceArmDnsCNameRecordCreateOrUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceArmDnsCNameRecordCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	dnsClient := meta.(*ArmClient).dnsClient
 	ctx := meta.(*ArmClient).StopContext
 
@@ -145,9 +145,9 @@ func resourceArmDnsCNameRecordDelete(d *schema.ResourceData, meta interface{}) e
 	name := id.Path["CNAME"]
 	zoneName := id.Path["dnszones"]
 
-	resp, error := dnsClient.Delete(ctx, resGroup, zoneName, name, dns.CNAME, "")
+	resp, err := dnsClient.Delete(ctx, resGroup, zoneName, name, dns.CNAME, "")
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Error deleting DNS CNAME Record %s: %+v", name, error)
+		return fmt.Errorf("Error deleting DNS CNAME Record %s: %+v", name, err)
 	}
 
 	return nil

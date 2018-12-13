@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
@@ -17,11 +17,11 @@ func TestAccAzureRMLoadBalancerProbe_basic(t *testing.T) {
 	probeName := fmt.Sprintf("probe-%d", ri)
 
 	subscriptionID := os.Getenv("ARM_SUBSCRIPTION_ID")
-	probe_id := fmt.Sprintf(
-		"/subscriptions/%s/resourceGroups/acctestrg-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/probes/%s",
+	probeId := fmt.Sprintf(
+		"/subscriptions/%s/resourceGroups/acctestRG-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/probes/%s",
 		subscriptionID, ri, ri, probeName)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -32,8 +32,15 @@ func TestAccAzureRMLoadBalancerProbe_basic(t *testing.T) {
 					testCheckAzureRMLoadBalancerExists("azurerm_lb.test", &lb),
 					testCheckAzureRMLoadBalancerProbeExists(probeName, &lb),
 					resource.TestCheckResourceAttr(
-						"azurerm_lb_probe.test", "id", probe_id),
+						"azurerm_lb_probe.test", "id", probeId),
 				),
+			},
+			{
+				ResourceName:      "azurerm_lb.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				// location is deprecated and was never actually used
+				ImportStateVerifyIgnore: []string{"location"},
 			},
 		},
 	})
@@ -45,7 +52,7 @@ func TestAccAzureRMLoadBalancerProbe_removal(t *testing.T) {
 	probeName := fmt.Sprintf("probe-%d", ri)
 	location := testLocation()
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -74,7 +81,7 @@ func TestAccAzureRMLoadBalancerProbe_update(t *testing.T) {
 	probeName := fmt.Sprintf("probe-%d", ri)
 	probe2Name := fmt.Sprintf("probe-%d", acctest.RandInt())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -106,7 +113,7 @@ func TestAccAzureRMLoadBalancerProbe_updateProtocol(t *testing.T) {
 	ri := acctest.RandInt()
 	probeName := fmt.Sprintf("probe-%d", ri)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -140,7 +147,7 @@ func TestAccAzureRMLoadBalancerProbe_reapply(t *testing.T) {
 		return s.Remove("azurerm_lb_probe.test")
 	}
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -170,7 +177,7 @@ func TestAccAzureRMLoadBalancerProbe_disappears(t *testing.T) {
 	ri := acctest.RandInt()
 	probeName := fmt.Sprintf("probe-%d", ri)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -234,8 +241,7 @@ func testCheckAzureRMLoadBalancerProbeDisappears(addressPoolName string, lb *net
 			return fmt.Errorf("Error Creating/Updating LoadBalancer: %+v", err)
 		}
 
-		err = future.WaitForCompletion(ctx, client.Client)
-		if err != nil {
+		if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 			return fmt.Errorf("Error waiting for completion for LoadBalancer: %+v", err)
 		}
 
@@ -247,7 +253,7 @@ func testCheckAzureRMLoadBalancerProbeDisappears(addressPoolName string, lb *net
 func testAccAzureRMLoadBalancerProbe_basic(rInt int, probeName string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -282,7 +288,7 @@ resource "azurerm_lb_probe" "test" {
 func testAccAzureRMLoadBalancerProbe_removal(rInt int, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -309,7 +315,7 @@ resource "azurerm_lb" "test" {
 func testAccAzureRMLoadBalancerProbe_multipleProbes(rInt int, probeName, probe2Name string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -352,7 +358,7 @@ resource "azurerm_lb_probe" "test2" {
 func testAccAzureRMLoadBalancerProbe_multipleProbesUpdate(rInt int, probeName, probe2Name string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -389,14 +395,13 @@ resource "azurerm_lb_probe" "test2" {
   name                = "%s"
   port                = 8080
 }
-
 `, rInt, location, rInt, rInt, rInt, probeName, probe2Name)
 }
 
 func testAccAzureRMLoadBalancerProbe_updateProtocolBefore(rInt int, probeName string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -433,7 +438,7 @@ resource "azurerm_lb_probe" "test" {
 func testAccAzureRMLoadBalancerProbe_updateProtocolAfter(rInt int, probeName string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 

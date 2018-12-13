@@ -11,13 +11,67 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
+func TestValidateMetricAlertRuleTags(t *testing.T) {
+	cases := []struct {
+		Name     string
+		Value    map[string]interface{}
+		ErrCount int
+	}{
+		{
+			Name: "Single Valid",
+			Value: map[string]interface{}{
+				"hello": "world",
+			},
+			ErrCount: 0,
+		},
+		{
+			Name: "Single Invalid",
+			Value: map[string]interface{}{
+				"$Type": "hello/world",
+			},
+			ErrCount: 1,
+		},
+		{
+			Name: "Single Invalid lowercase",
+			Value: map[string]interface{}{
+				"$type": "hello/world",
+			},
+			ErrCount: 1,
+		},
+		{
+			Name: "Multiple Valid",
+			Value: map[string]interface{}{
+				"hello": "world",
+				"foo":   "bar",
+			},
+			ErrCount: 0,
+		},
+		{
+			Name: "Multiple Invalid",
+			Value: map[string]interface{}{
+				"hello": "world",
+				"$type": "Microsoft.Foo/Bar",
+			},
+			ErrCount: 1,
+		},
+	}
+
+	for _, tc := range cases {
+		_, errors := validateMetricAlertRuleTags(tc.Value, "azurerm_metric_alert_rule")
+
+		if len(errors) != tc.ErrCount {
+			t.Fatalf("Expected %q to return %d errors but returned %d", tc.Name, tc.ErrCount, len(errors))
+		}
+	}
+}
+
 func TestAccAzureRMMetricAlertRule_virtualMachineCpu(t *testing.T) {
 	resourceName := "azurerm_metric_alertrule.test"
 	ri := acctest.RandInt()
 	preConfig := testAccAzureRMMetricAlertRule_virtualMachineCpu(ri, testLocation(), true)
 	postConfig := testAccAzureRMMetricAlertRule_virtualMachineCpu(ri, testLocation(), false)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMMetricAlertRuleDestroy,
@@ -27,6 +81,7 @@ func TestAccAzureRMMetricAlertRule_virtualMachineCpu(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMMetricAlertRuleExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "enabled", "true"),
+					resource.TestCheckNoResourceAttr(resourceName, "tags.$type"),
 				),
 			},
 			{
@@ -34,6 +89,16 @@ func TestAccAzureRMMetricAlertRule_virtualMachineCpu(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMMetricAlertRuleExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "enabled", "false"),
+					resource.TestCheckNoResourceAttr(resourceName, "tags.$type"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMMetricAlertRuleExists(resourceName),
+					resource.TestCheckNoResourceAttr(resourceName, "tags.$type"),
 				),
 			},
 		},
@@ -45,7 +110,7 @@ func TestAccAzureRMMetricAlertRule_sqlDatabaseStorage(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMMetricAlertRule_sqlDatabaseStorage(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMMetricAlertRuleDestroy,
@@ -54,6 +119,7 @@ func TestAccAzureRMMetricAlertRule_sqlDatabaseStorage(t *testing.T) {
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMMetricAlertRuleExists(resourceName),
+					resource.TestCheckNoResourceAttr(resourceName, "tags.$type"),
 				),
 			},
 		},

@@ -6,6 +6,8 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/servicebus/mgmt/2017-04-01/servicebus"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform/helper/validation"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -21,15 +23,17 @@ func resourceArmServiceBusQueue() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateServiceBusQueueName(),
 			},
 
 			"namespace_name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateServiceBusNamespaceName(),
 			},
 
 			"location": deprecatedLocationSchema(),
@@ -37,21 +41,24 @@ func resourceArmServiceBusQueue() *schema.Resource {
 			"resource_group_name": resourceGroupNameSchema(),
 
 			"auto_delete_on_idle": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: validateIso8601Duration(),
 			},
 
 			"default_message_ttl": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: validateIso8601Duration(),
 			},
 
 			"duplicate_detection_history_time_window": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: validateIso8601Duration(),
 			},
 
 			"enable_express": {
@@ -86,16 +93,37 @@ func resourceArmServiceBusQueue() *schema.Resource {
 				ForceNew: true,
 			},
 
+			"requires_session": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+				ForceNew: true,
+			},
+
+			"dead_lettering_on_message_expiration": {
+				Type:     schema.TypeBool,
+				Default:  false,
+				Optional: true,
+			},
+
 			// TODO: remove these in the next major release
 			"enable_batched_operations": {
 				Type:       schema.TypeBool,
 				Optional:   true,
 				Deprecated: "This field has been removed by Azure.",
 			},
+
 			"support_ordering": {
 				Type:       schema.TypeBool,
 				Optional:   true,
 				Deprecated: "This field has been removed by Azure.",
+			},
+
+			"max_delivery_count": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      10,
+				ValidateFunc: validation.IntAtLeast(1),
 			},
 		},
 	}
@@ -113,15 +141,21 @@ func resourceArmServiceBusQueueCreateUpdate(d *schema.ResourceData, meta interfa
 	enableExpress := d.Get("enable_express").(bool)
 	enablePartitioning := d.Get("enable_partitioning").(bool)
 	maxSize := int32(d.Get("max_size_in_megabytes").(int))
+	maxDeliveryCount := int32(d.Get("max_delivery_count").(int))
 	requiresDuplicateDetection := d.Get("requires_duplicate_detection").(bool)
+	requiresSession := d.Get("requires_session").(bool)
+	deadLetteringOnMessageExpiration := d.Get("dead_lettering_on_message_expiration").(bool)
 
 	parameters := servicebus.SBQueue{
 		Name: &name,
 		SBQueueProperties: &servicebus.SBQueueProperties{
-			EnableExpress:              &enableExpress,
-			EnablePartitioning:         &enablePartitioning,
-			MaxSizeInMegabytes:         &maxSize,
-			RequiresDuplicateDetection: &requiresDuplicateDetection,
+			EnableExpress:                    &enableExpress,
+			EnablePartitioning:               &enablePartitioning,
+			MaxSizeInMegabytes:               &maxSize,
+			MaxDeliveryCount:                 &maxDeliveryCount,
+			RequiresDuplicateDetection:       &requiresDuplicateDetection,
+			RequiresSession:                  &requiresSession,
+			DeadLetteringOnMessageExpiration: &deadLetteringOnMessageExpiration,
 		},
 	}
 
@@ -144,15 +178,9 @@ func resourceArmServiceBusQueueCreateUpdate(d *schema.ResourceData, meta interfa
 	// We need to retrieve the namespace because Premium namespace works differently from Basic and Standard,
 	// so it needs different rules applied to it.
 	namespacesClient := meta.(*ArmClient).serviceBusNamespacesClient
-	namespace, nsErr := namespacesClient.Get(ctx, resourceGroup, namespaceName)
-	if nsErr != nil {
-		return nsErr
-	}
-
-	// Enforce Premium namespace to have partitioning enabled in Terraform. It is always enabled in Azure for
-	// Premium SKU.
-	if namespace.Sku.Name == servicebus.Premium && !d.Get("enable_partitioning").(bool) {
-		return fmt.Errorf("ServiceBus Queue (%s) must have Partitioning enabled for Premium SKU", name)
+	namespace, err := namespacesClient.Get(ctx, resourceGroup, namespaceName)
+	if err != nil {
+		return fmt.Errorf("Error retrieving ServiceBus Namespace %q (Resource Group %q): %+v", resourceGroup, namespaceName, err)
 	}
 
 	// Enforce Premium namespace to have Express Entities disabled in Terraform since they are not supported for
@@ -161,8 +189,7 @@ func resourceArmServiceBusQueueCreateUpdate(d *schema.ResourceData, meta interfa
 		return fmt.Errorf("ServiceBus Queue (%s) does not support Express Entities in Premium SKU and must be disabled", name)
 	}
 
-	_, err := client.CreateOrUpdate(ctx, resourceGroup, namespaceName, name, parameters)
-	if err != nil {
+	if _, err = client.CreateOrUpdate(ctx, resourceGroup, namespaceName, name, parameters); err != nil {
 		return err
 	}
 
@@ -213,6 +240,9 @@ func resourceArmServiceBusQueueRead(d *schema.ResourceData, meta interface{}) er
 		d.Set("enable_express", props.EnableExpress)
 		d.Set("enable_partitioning", props.EnablePartitioning)
 		d.Set("requires_duplicate_detection", props.RequiresDuplicateDetection)
+		d.Set("requires_session", props.RequiresSession)
+		d.Set("dead_lettering_on_message_expiration", props.DeadLetteringOnMessageExpiration)
+		d.Set("max_delivery_count", props.MaxDeliveryCount)
 
 		if maxSizeMB := props.MaxSizeInMegabytes; maxSizeMB != nil {
 			maxSize := int(*maxSizeMB)

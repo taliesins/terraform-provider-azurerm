@@ -12,10 +12,11 @@ import (
 )
 
 func TestAccAzureRMRoleDefinition_basic(t *testing.T) {
+	resourceName := "azurerm_role_definition.test"
 	ri := acctest.RandInt()
 	config := testAccAzureRMRoleDefinition_basic(uuid.New().String(), ri)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMRoleDefinitionDestroy,
@@ -23,18 +24,25 @@ func TestAccAzureRMRoleDefinition_basic(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMRoleDefinitionExists("azurerm_role_definition.test"),
+					testCheckAzureRMRoleDefinitionExists(resourceName),
 				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"role_definition_id", "scope"},
 			},
 		},
 	})
 }
 
 func TestAccAzureRMRoleDefinition_complete(t *testing.T) {
+	resourceName := "azurerm_role_definition.test"
 	ri := acctest.RandInt()
 	config := testAccAzureRMRoleDefinition_complete(uuid.New().String(), ri)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMRoleDefinitionDestroy,
@@ -42,8 +50,14 @@ func TestAccAzureRMRoleDefinition_complete(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMRoleDefinitionExists("azurerm_role_definition.test"),
+					testCheckAzureRMRoleDefinitionExists(resourceName),
 				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"role_definition_id", "scope"},
 			},
 		},
 	})
@@ -57,7 +71,7 @@ func TestAccAzureRMRoleDefinition_update(t *testing.T) {
 	config := testAccAzureRMRoleDefinition_basic(id, ri)
 	updatedConfig := testAccAzureRMRoleDefinition_updated(id, ri)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMRoleDefinitionDestroy,
@@ -81,6 +95,28 @@ func TestAccAzureRMRoleDefinition_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "permissions.0.actions.0", "*"),
 					resource.TestCheckResourceAttr(resourceName, "permissions.0.not_actions.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "permissions.0.not_actions.0", "Microsoft.Authorization/*/read"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccAzureRMRoleDefinition_emptyName(t *testing.T) {
+	resourceName := "azurerm_role_definition.test"
+
+	ri := acctest.RandInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMRoleDefinitionDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAzureRMRoleDefinition_emptyId(ri),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMRoleDefinitionExists(resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "name"),
 				),
 			},
 		},
@@ -169,8 +205,10 @@ resource "azurerm_role_definition" "test" {
   description        = "Acceptance Test Role Definition"
 
   permissions {
-    actions     = ["*"]
-    not_actions = ["Microsoft.Authorization/*/read"]
+    actions          = ["*"]
+    data_actions     = ["Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read"]
+    not_actions      = ["Microsoft.Authorization/*/read"]
+    not_data_actions = []
   }
 
   assignable_scopes = [
@@ -200,4 +238,24 @@ resource "azurerm_role_definition" "test" {
   ]
 }
 `, id, rInt)
+}
+
+func testAccAzureRMRoleDefinition_emptyId(rInt int) string {
+	return fmt.Sprintf(`
+data "azurerm_subscription" "primary" {}
+
+resource "azurerm_role_definition" "test" {
+  name  = "acctestrd-%d"
+  scope = "${data.azurerm_subscription.primary.id}"
+
+  permissions {
+    actions     = ["*"]
+    not_actions = []
+  }
+
+  assignable_scopes = [
+    "${data.azurerm_subscription.primary.id}",
+  ]
+}
+`, rInt)
 }

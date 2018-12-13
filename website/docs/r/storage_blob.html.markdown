@@ -3,18 +3,18 @@ layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_storage_blob"
 sidebar_current: "docs-azurerm-resource-storage-blob"
 description: |-
-  Create a Azure Storage Blob.
+  Manages a Azure Storage Blob.
 ---
 
-# azurerm\_storage\_blob
+# azurerm_storage_blob
 
-Create an Azure Storage Blob.
+Manage an Azure Storage Blob.
 
 ## Example Usage
 
 ```hcl
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-d"
+  name     = "acctestRG-d"
   location = "westus"
 }
 
@@ -64,6 +64,8 @@ The following arguments are supported:
 
 * `size` - (Optional) Used only for `page` blobs to specify the size in bytes of the blob to be created. Must be a multiple of 512. Defaults to 0.
 
+* `content_type` - (Optional) The content type of the storage blob. Cannot be defined if `source_uri` is defined. Defaults to `application/octet-stream`.
+
 * `source` - (Optional) An absolute path to a file on the local system. Cannot be defined if `source_uri` is defined.
 
 * `source_uri` - (Optional) The URI of an existing blob, or a file in the Azure File service, to use as the source contents
@@ -77,5 +79,13 @@ The following arguments are supported:
 
 The following attributes are exported in addition to the arguments listed above:
 
-* `id` - The storage blob Resource ID.
+* `id` - The ID of the Storage Blob.
 * `url` - The URL of the blob
+
+## Import
+
+Storage Blob's can be imported using the `resource id`, e.g.
+
+```shell
+terraform import azurerm_storage_blob.blob1 https://example.blob.core.windows.net/container/blob.vhd
+```

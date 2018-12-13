@@ -80,7 +80,7 @@ func TestAccAzureRMContainerService_dcosBasic(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMContainerService_dcosBasic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMContainerServiceDestroy,
@@ -101,7 +101,7 @@ func TestAccAzureRMContainerService_kubernetesBasic(t *testing.T) {
 	clientSecret := os.Getenv("ARM_CLIENT_SECRET")
 	config := testAccAzureRMContainerService_kubernetesBasic(ri, clientId, clientSecret, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMContainerServiceDestroy,
@@ -122,7 +122,7 @@ func TestAccAzureRMContainerService_kubernetesComplete(t *testing.T) {
 	clientSecret := os.Getenv("ARM_CLIENT_SECRET")
 	config := testAccAzureRMContainerService_kubernetesComplete(ri, clientId, clientSecret, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMContainerServiceDestroy,
@@ -141,7 +141,7 @@ func TestAccAzureRMContainerService_swarmBasic(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMContainerService_swarmBasic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMContainerServiceDestroy,
@@ -186,7 +186,7 @@ resource "azurerm_container_service" "test" {
     name       = "default"
     count      = 1
     dns_prefix = "acctestagent%d"
-    vm_size    = "Standard_A0"
+    vm_size    = "Standard_F2"
   }
 
   diagnostics_profile {
@@ -226,7 +226,7 @@ resource "azurerm_container_service" "test" {
     name       = "default"
     count      = 1
     dns_prefix = "acctestagent%d"
-    vm_size    = "Standard_A0"
+    vm_size    = "Standard_F2"
   }
 
   service_principal {
@@ -271,7 +271,7 @@ resource "azurerm_container_service" "test" {
     name       = "default"
     count      = 1
     dns_prefix = "acctestagent%d"
-    vm_size    = "Standard_A0"
+    vm_size    = "Standard_F2"
   }
 
   service_principal {
@@ -320,7 +320,7 @@ resource "azurerm_container_service" "test" {
     name       = "default"
     count      = 1
     dns_prefix = "acctestagent%d"
-    vm_size    = "Standard_A0"
+    vm_size    = "Standard_F2"
   }
 
   diagnostics_profile {

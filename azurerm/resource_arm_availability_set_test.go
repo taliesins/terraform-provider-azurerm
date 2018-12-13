@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -15,7 +16,7 @@ func TestAccAzureRMAvailabilitySet_basic(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMAvailabilitySet_basic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMAvailabilitySetDestroy,
@@ -28,6 +29,11 @@ func TestAccAzureRMAvailabilitySet_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "platform_fault_domain_count", "3"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
@@ -37,7 +43,7 @@ func TestAccAzureRMAvailabilitySet_disappears(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMAvailabilitySet_basic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMAvailabilitySetDestroy,
@@ -63,7 +69,7 @@ func TestAccAzureRMAvailabilitySet_withTags(t *testing.T) {
 	preConfig := testAccAzureRMAvailabilitySet_withTags(ri, location)
 	postConfig := testAccAzureRMAvailabilitySet_withUpdatedTags(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMAvailabilitySetDestroy,
@@ -85,6 +91,11 @@ func TestAccAzureRMAvailabilitySet_withTags(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "tags.environment", "staging"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
@@ -94,7 +105,7 @@ func TestAccAzureRMAvailabilitySet_withDomainCounts(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMAvailabilitySet_withDomainCounts(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMAvailabilitySetDestroy,
@@ -103,9 +114,14 @@ func TestAccAzureRMAvailabilitySet_withDomainCounts(t *testing.T) {
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMAvailabilitySetExists(resourceName),
-					resource.TestCheckResourceAttr(resourceName, "platform_update_domain_count", "10"),
-					resource.TestCheckResourceAttr(resourceName, "platform_fault_domain_count", "1"),
+					resource.TestCheckResourceAttr(resourceName, "platform_update_domain_count", "3"),
+					resource.TestCheckResourceAttr(resourceName, "platform_fault_domain_count", "3"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -116,7 +132,7 @@ func TestAccAzureRMAvailabilitySet_managed(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMAvailabilitySet_managed(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMAvailabilitySetDestroy,
@@ -127,6 +143,11 @@ func TestAccAzureRMAvailabilitySet_managed(t *testing.T) {
 					testCheckAzureRMAvailabilitySetExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "managed", "true"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -179,7 +200,7 @@ func testCheckAzureRMAvailabilitySetDisappears(name string) resource.TestCheckFu
 		ctx := testAccProvider.Meta().(*ArmClient).StopContext
 		resp, err := client.Delete(ctx, resourceGroup, availSetName)
 		if err != nil {
-			if !utils.ResponseWasNotFound(resp.Response) {
+			if !response.WasNotFound(resp.Response) {
 				return fmt.Errorf("Bad: Delete on availSetClient: %+v", err)
 			}
 		}
@@ -279,8 +300,8 @@ resource "azurerm_availability_set" "test" {
   name                         = "acctestavset-%d"
   location                     = "${azurerm_resource_group.test.location}"
   resource_group_name          = "${azurerm_resource_group.test.name}"
-  platform_update_domain_count = 10
-  platform_fault_domain_count  = 1
+  platform_update_domain_count = 3
+  platform_fault_domain_count  = 3
 }
 `, rInt, location, rInt)
 }
@@ -296,8 +317,8 @@ resource "azurerm_availability_set" "test" {
   name                         = "acctestavset-%d"
   location                     = "${azurerm_resource_group.test.location}"
   resource_group_name          = "${azurerm_resource_group.test.name}"
-  platform_update_domain_count = 10
-  platform_fault_domain_count  = 1
+  platform_update_domain_count = 3
+  platform_fault_domain_count  = 3
   managed                      = true
 }
 `, rInt, location, rInt)

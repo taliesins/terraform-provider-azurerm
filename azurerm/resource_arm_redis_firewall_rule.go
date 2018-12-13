@@ -6,7 +6,7 @@ import (
 
 	"regexp"
 
-	"github.com/Azure/azure-sdk-for-go/services/redis/mgmt/2016-04-01/redis"
+	"github.com/Azure/azure-sdk-for-go/services/redis/mgmt/2018-03-01/redis"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
@@ -17,6 +17,9 @@ func resourceArmRedisFirewallRule() *schema.Resource {
 		Read:   resourceArmRedisFirewallRuleRead,
 		Update: resourceArmRedisFirewallRuleCreateUpdate,
 		Delete: resourceArmRedisFirewallRuleDelete,
+		Importer: &schema.ResourceImporter{
+			State: schema.ImportStatePassthrough,
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -58,16 +61,14 @@ func resourceArmRedisFirewallRuleCreateUpdate(d *schema.ResourceData, meta inter
 	startIP := d.Get("start_ip").(string)
 	endIP := d.Get("end_ip").(string)
 
-	parameters := redis.FirewallRule{
-		Name: &name,
+	parameters := redis.FirewallRuleCreateParameters{
 		FirewallRuleProperties: &redis.FirewallRuleProperties{
 			StartIP: utils.String(startIP),
 			EndIP:   utils.String(endIP),
 		},
 	}
 
-	_, err := client.CreateOrUpdate(ctx, resourceGroup, cacheName, name, parameters)
-	if err != nil {
+	if _, err := client.CreateOrUpdate(ctx, resourceGroup, cacheName, name, parameters); err != nil {
 		return err
 	}
 
@@ -142,12 +143,12 @@ func resourceArmRedisFirewallRuleDelete(d *schema.ResourceData, meta interface{}
 	return nil
 }
 
-func validateRedisFirewallRuleName(v interface{}, k string) (ws []string, es []error) {
+func validateRedisFirewallRuleName(v interface{}, k string) (warnings []string, errors []error) {
 	value := v.(string)
 
 	if matched := regexp.MustCompile(`^[0-9a-zA-Z]+$`).Match([]byte(value)); !matched {
-		es = append(es, fmt.Errorf("%q may only contain alphanumeric characters", k))
+		errors = append(errors, fmt.Errorf("%q may only contain alphanumeric characters", k))
 	}
 
-	return
+	return warnings, errors
 }

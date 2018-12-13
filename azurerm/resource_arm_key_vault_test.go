@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -69,10 +70,11 @@ func TestAccAzureRMKeyVault_name(t *testing.T) {
 }
 
 func TestAccAzureRMKeyVault_basic(t *testing.T) {
+	resourceName := "azurerm_key_vault.test"
 	ri := acctest.RandInt()
 	config := testAccAzureRMKeyVault_basic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultDestroy,
@@ -80,8 +82,72 @@ func TestAccAzureRMKeyVault_basic(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMKeyVaultExists("azurerm_key_vault.test"),
+					testCheckAzureRMKeyVaultExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.#", "0"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccAzureRMKeyVault_networkAcls(t *testing.T) {
+	resourceName := "azurerm_key_vault.test"
+	ri := acctest.RandInt()
+	location := testLocation()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMKeyVaultDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAzureRMKeyVault_networkAcls(ri, location),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMKeyVaultExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.bypass", "None"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.default_action", "Deny"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.ip_rules.#", "0"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.virtual_network_subnet_ids.#", "2"),
+				),
+			},
+			{
+				Config: testAccAzureRMKeyVault_networkAclsUpdated(ri, location),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMKeyVaultExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.bypass", "AzureServices"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.default_action", "Allow"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.ip_rules.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "network_acls.0.virtual_network_subnet_ids.#", "1"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccAzureRMKeyVault_disappears(t *testing.T) {
+	resourceName := "azurerm_key_vault.test"
+	ri := acctest.RandInt()
+	config := testAccAzureRMKeyVault_basic(ri, testLocation())
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMKeyVaultDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMKeyVaultExists(resourceName),
+					testCheckAzureRMKeyVaultDisappears(resourceName),
+				),
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
@@ -92,7 +158,7 @@ func TestAccAzureRMKeyVault_complete(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMKeyVault_complete(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultDestroy,
@@ -104,6 +170,11 @@ func TestAccAzureRMKeyVault_complete(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "access_policy.0.application_id"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
@@ -114,7 +185,7 @@ func TestAccAzureRMKeyVault_update(t *testing.T) {
 	preConfig := testAccAzureRMKeyVault_basic(ri, testLocation())
 	postConfig := testAccAzureRMKeyVault_update(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultDestroy,
@@ -125,7 +196,7 @@ func TestAccAzureRMKeyVault_update(t *testing.T) {
 					testCheckAzureRMKeyVaultExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "access_policy.0.key_permissions.0", "create"),
 					resource.TestCheckResourceAttr(resourceName, "access_policy.0.secret_permissions.0", "set"),
-					resource.TestCheckResourceAttr(resourceName, "tags.environment", "Production"),
+					resource.TestCheckResourceAttr(resourceName, "tags.%", "0"),
 				),
 			},
 			{
@@ -138,6 +209,31 @@ func TestAccAzureRMKeyVault_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "enabled_for_template_deployment", "true"),
 					resource.TestCheckResourceAttr(resourceName, "tags.environment", "Staging"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccAzureRMKeyVault_justCert(t *testing.T) {
+	resourceName := "azurerm_key_vault.test"
+	ri := acctest.RandInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMKeyVaultDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAzureRMKeyVault_justCert(ri, testLocation()),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMKeyVaultExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "access_policy.0.certificate_permissions.0", "get"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -199,6 +295,36 @@ func testCheckAzureRMKeyVaultExists(name string) resource.TestCheckFunc {
 	}
 }
 
+func testCheckAzureRMKeyVaultDisappears(name string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Ensure we have enough information in state to look up in API
+		rs, ok := s.RootModule().Resources[name]
+		if !ok {
+			return fmt.Errorf("Not found: %s", name)
+		}
+
+		vaultName := rs.Primary.Attributes["name"]
+		resourceGroup, hasResourceGroup := rs.Primary.Attributes["resource_group_name"]
+		if !hasResourceGroup {
+			return fmt.Errorf("Bad: no resource group found in state for vault: %s", vaultName)
+		}
+
+		client := testAccProvider.Meta().(*ArmClient).keyVaultClient
+		ctx := testAccProvider.Meta().(*ArmClient).StopContext
+
+		resp, err := client.Delete(ctx, resourceGroup, vaultName)
+		if err != nil {
+			if response.WasNotFound(resp.Response) {
+				return nil
+			}
+
+			return fmt.Errorf("Bad: Delete on keyVaultClient: %+v", err)
+		}
+
+		return nil
+	}
+}
+
 func testAccAzureRMKeyVault_basic(rInt int, location string) string {
 	return fmt.Sprintf(`
 data "azurerm_client_config" "current" {}
@@ -230,12 +356,117 @@ resource "azurerm_key_vault" "test" {
       "set",
     ]
   }
-
-  tags {
-    environment = "Production"
-  }
 }
 `, rInt, location, rInt)
+}
+
+func testAccAzureRMKeyVault_networkAclsTemplate(rInt int, location string) string {
+	return fmt.Sprintf(`
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_virtual_network" "test" {
+  name                = "acctestvirtnet%d"
+  address_space       = ["10.0.0.0/16"]
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+}
+
+resource "azurerm_subnet" "test_a" {
+  name                 = "acctestsubneta%d"
+  resource_group_name  = "${azurerm_resource_group.test.name}"
+  virtual_network_name = "${azurerm_virtual_network.test.name}"
+  address_prefix       = "10.0.2.0/24"
+  service_endpoints    = ["Microsoft.KeyVault",]
+}
+
+resource "azurerm_subnet" "test_b" {
+  name                 = "acctestsubnetb%d"
+  resource_group_name  = "${azurerm_resource_group.test.name}"
+  virtual_network_name = "${azurerm_virtual_network.test.name}"
+  address_prefix       = "10.0.4.0/24"
+  service_endpoints    = ["Microsoft.KeyVault",]
+}
+`, rInt, location, rInt, rInt, rInt)
+}
+
+func testAccAzureRMKeyVault_networkAcls(rInt int, location string) string {
+	template := testAccAzureRMKeyVault_networkAclsTemplate(rInt, location)
+	return fmt.Sprintf(`
+%s
+
+resource "azurerm_key_vault" "test" {
+  name                = "vault%d"
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
+
+  sku {
+    name = "premium"
+  }
+
+  access_policy {
+    tenant_id = "${data.azurerm_client_config.current.tenant_id}"
+    object_id = "${data.azurerm_client_config.current.client_id}"
+
+    key_permissions = [
+      "create",
+    ]
+
+    secret_permissions = [
+      "set",
+    ]
+  }
+
+  network_acls {
+    default_action             = "Deny"
+    bypass                     = "None"
+    virtual_network_subnet_ids = ["${azurerm_subnet.test_a.id}", "${azurerm_subnet.test_b.id}"]
+  }
+}
+`, template, rInt)
+}
+
+func testAccAzureRMKeyVault_networkAclsUpdated(rInt int, location string) string {
+	template := testAccAzureRMKeyVault_networkAclsTemplate(rInt, location)
+	return fmt.Sprintf(`
+%s
+
+resource "azurerm_key_vault" "test" {
+  name                = "vault%d"
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
+
+  sku {
+    name = "premium"
+  }
+
+  access_policy {
+    tenant_id = "${data.azurerm_client_config.current.tenant_id}"
+    object_id = "${data.azurerm_client_config.current.client_id}"
+
+    key_permissions = [
+      "create",
+    ]
+
+    secret_permissions = [
+      "set",
+    ]
+  }
+
+  network_acls {
+    default_action             = "Allow"
+    bypass                     = "AzureServices"
+    ip_rules                   = ["10.0.0.102/32"]
+    virtual_network_subnet_ids = ["${azurerm_subnet.test_a.id}"]
+  }
+}
+`, template, rInt)
 }
 
 func testAccAzureRMKeyVault_update(rInt int, location string) string {
@@ -320,6 +551,37 @@ resource "azurerm_key_vault" "test" {
 
   tags {
     environment = "Production"
+  }
+}
+`, rInt, location, rInt)
+}
+
+func testAccAzureRMKeyVault_justCert(rInt int, location string) string {
+	return fmt.Sprintf(`
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_key_vault" "test" {
+  name                = "vault%d"
+  location            = "${azurerm_resource_group.test.location}"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  tenant_id           = "${data.azurerm_client_config.current.tenant_id}"
+
+  sku {
+    name = "premium"
+  }
+
+  access_policy {
+    tenant_id = "${data.azurerm_client_config.current.tenant_id}"
+    object_id = "${data.azurerm_client_config.current.client_id}"
+
+    certificate_permissions = [
+      "get",
+    ]
   }
 }
 `, rInt, location, rInt)

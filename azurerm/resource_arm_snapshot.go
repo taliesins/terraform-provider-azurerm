@@ -5,7 +5,7 @@ import (
 	"log"
 	"regexp"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
@@ -86,7 +86,7 @@ func resourceArmSnapshotCreateUpdate(d *schema.ResourceData, meta interface{}) e
 
 	properties := compute.Snapshot{
 		Location: utils.String(location),
-		DiskProperties: &compute.DiskProperties{
+		SnapshotProperties: &compute.SnapshotProperties{
 			CreationData: &compute.CreationData{
 				CreateOption: compute.DiskCreateOption(createOption),
 			},
@@ -95,20 +95,20 @@ func resourceArmSnapshotCreateUpdate(d *schema.ResourceData, meta interface{}) e
 	}
 
 	if v, ok := d.GetOk("source_uri"); ok {
-		properties.DiskProperties.CreationData.SourceURI = utils.String(v.(string))
+		properties.SnapshotProperties.CreationData.SourceURI = utils.String(v.(string))
 	}
 
 	if v, ok := d.GetOk("source_resource_id"); ok {
-		properties.DiskProperties.CreationData.SourceResourceID = utils.String(v.(string))
+		properties.SnapshotProperties.CreationData.SourceResourceID = utils.String(v.(string))
 	}
 
 	if v, ok := d.GetOk("storage_account_id"); ok {
-		properties.DiskProperties.CreationData.StorageAccountID = utils.String(v.(string))
+		properties.SnapshotProperties.CreationData.StorageAccountID = utils.String(v.(string))
 	}
 
 	diskSizeGB := d.Get("disk_size_gb").(int)
 	if diskSizeGB > 0 {
-		properties.DiskProperties.DiskSizeGB = utils.Int32(int32(diskSizeGB))
+		properties.SnapshotProperties.DiskSizeGB = utils.Int32(int32(diskSizeGB))
 	}
 
 	if v, ok := d.GetOk("encryption_settings"); ok {
@@ -122,8 +122,7 @@ func resourceArmSnapshotCreateUpdate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -162,12 +161,11 @@ func resourceArmSnapshotRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", resp.Name)
 	d.Set("resource_group_name", resourceGroup)
-
 	if location := resp.Location; location != nil {
 		d.Set("location", azureRMNormalizeLocation(*location))
 	}
 
-	if props := resp.DiskProperties; props != nil {
+	if props := resp.SnapshotProperties; props != nil {
 
 		if data := props.CreationData; data != nil {
 			d.Set("create_option", string(data.CreateOption))
@@ -208,19 +206,18 @@ func resourceArmSnapshotDelete(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error deleting Snapshot: %+v", err)
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error deleting Snapshot: %+v", err)
 	}
 
 	return nil
 }
 
-func validateSnapshotName(v interface{}, k string) (ws []string, errors []error) {
-	// a-z, A-Z, 0-9 and _. The max name length is 80
+func validateSnapshotName(v interface{}, _ string) (warnings []string, errors []error) {
+	// a-z, A-Z, 0-9, _ and -. The max name length is 80
 	value := v.(string)
 
-	r, _ := regexp.Compile("^[A-Za-z0-9_]+$")
+	r, _ := regexp.Compile("^[A-Za-z0-9_-]+$")
 	if !r.MatchString(value) {
 		errors = append(errors, fmt.Errorf("Snapshot Names can only contain alphanumeric characters and underscores."))
 	}
@@ -230,5 +227,5 @@ func validateSnapshotName(v interface{}, k string) (ws []string, errors []error)
 		errors = append(errors, fmt.Errorf("Snapshot Name can be up to 80 characters, currently %d.", length))
 	}
 
-	return
+	return warnings, errors
 }

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
@@ -126,26 +126,24 @@ func dataSourceArmImageRead(d *schema.ResourceData, meta interface{}) error {
 		var err error
 		if img, err = client.Get(ctx, resGroup, name, ""); err != nil {
 			if utils.ResponseWasNotFound(img.Response) {
-				d.SetId("")
-				return nil
+				return fmt.Errorf("Error: Image %q (Resource Group %q) was not found", name, resGroup)
 			}
 			return fmt.Errorf("[ERROR] Error making Read request on Azure Image %q (resource group %q): %+v", name, resGroup, err)
 		}
 	} else {
 		r := regexp.MustCompile(nameRegex.(string))
 
-		list := []compute.Image{}
+		list := make([]compute.Image, 0)
 		resp, err := client.ListByResourceGroupComplete(ctx, resGroup)
 		if err != nil {
 			if utils.ResponseWasNotFound(resp.Response().Response) {
-				d.SetId("")
-				return nil
+				return fmt.Errorf("Error: Image %q (Resource Group %q) was not found", name, resGroup)
 			}
 			return fmt.Errorf("[ERROR] Error getting list of images (resource group %q): %+v", resGroup, err)
 		}
 
 		for resp.NotDone() {
-			img := resp.Value()
+			img = resp.Value()
 			if r.Match(([]byte)(*img.Name)) {
 				list = append(list, img)
 			}
@@ -177,7 +175,6 @@ func dataSourceArmImageRead(d *schema.ResourceData, meta interface{}) error {
 	d.SetId(*img.ID)
 	d.Set("name", img.Name)
 	d.Set("resource_group_name", resGroup)
-
 	if location := img.Location; location != nil {
 		d.Set("location", azureRMNormalizeLocation(*location))
 	}

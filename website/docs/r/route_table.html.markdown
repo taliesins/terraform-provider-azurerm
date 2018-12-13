@@ -20,9 +20,10 @@ resource "azurerm_resource_group" "test" {
 }
 
 resource "azurerm_route_table" "test" {
-  name                = "acceptanceTestSecurityGroup1"
-  location            = "${azurerm_resource_group.test.location}"
-  resource_group_name = "${azurerm_resource_group.test.name}"
+  name                          = "acceptanceTestSecurityGroup1"
+  location                      = "${azurerm_resource_group.test.location}"
+  resource_group_name           = "${azurerm_resource_group.test.name}"
+  disable_bgp_route_propagation = false
 
   route {
     name           = "route1"
@@ -47,6 +48,8 @@ The following arguments are supported:
 * `location` - (Required) Specifies the supported Azure location where the resource exists. Changing this forces a new resource to be created.
 
 * `route` - (Optional) Can be specified multiple times to define multiple routes. Each `route` block supports fields documented below.
+
+* `disable_bgp_route_propagation` - (Optional) Boolean flag which controls propagation of routes learned by BGP on that route table. True means disable.
 
 * `tags` - (Optional) A mapping of tags to assign to the resource.
 

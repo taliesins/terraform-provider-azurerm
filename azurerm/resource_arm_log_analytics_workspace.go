@@ -5,7 +5,7 @@ import (
 	"log"
 	"regexp"
 
-	"github.com/Azure/azure-sdk-for-go/services/operationalinsights/mgmt/2015-11-01-preview/operationalinsights"
+	"github.com/Azure/azure-sdk-for-go/services/preview/operationalinsights/mgmt/2015-11-01-preview/operationalinsights"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
@@ -44,6 +44,7 @@ func resourceArmLogAnalyticsWorkspace() *schema.Resource {
 					string(operationalinsights.Standalone),
 					string(operationalinsights.Standard),
 					string(operationalinsights.Unlimited),
+					string(operationalinsights.PerGB2018),
 				}, true),
 				DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
 			},
@@ -66,13 +67,15 @@ func resourceArmLogAnalyticsWorkspace() *schema.Resource {
 			},
 
 			"primary_shared_key": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 
 			"secondary_shared_key": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 
 			"tags": tagsSchema(),
@@ -86,7 +89,7 @@ func resourceArmLogAnalyticsWorkspaceCreateUpdate(d *schema.ResourceData, meta i
 	log.Printf("[INFO] preparing arguments for AzureRM Log Analytics workspace creation.")
 
 	name := d.Get("name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	resGroup := d.Get("resource_group_name").(string)
 
 	skuName := d.Get("sku").(string)
@@ -113,8 +116,7 @@ func resourceArmLogAnalyticsWorkspaceCreateUpdate(d *schema.ResourceData, meta i
 		return err
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -153,8 +155,11 @@ func resourceArmLogAnalyticsWorkspaceRead(d *schema.ResourceData, meta interface
 	}
 
 	d.Set("name", resp.Name)
-	d.Set("location", resp.Location)
 	d.Set("resource_group_name", resGroup)
+	if location := resp.Location; location != nil {
+		d.Set("location", azureRMNormalizeLocation(*location))
+	}
+
 	d.Set("workspace_id", resp.CustomerID)
 	d.Set("portal_url", resp.PortalURL)
 	if sku := resp.Sku; sku != nil {
@@ -197,7 +202,7 @@ func resourceArmLogAnalyticsWorkspaceDelete(d *schema.ResourceData, meta interfa
 	return nil
 }
 
-func validateAzureRmLogAnalyticsWorkspaceName(v interface{}, k string) (ws []string, errors []error) {
+func validateAzureRmLogAnalyticsWorkspaceName(v interface{}, _ string) (warnings []string, errors []error) {
 	value := v.(string)
 
 	r, _ := regexp.Compile("^[A-Za-z0-9][A-Za-z0-9-]+[A-Za-z0-9]$")
@@ -210,5 +215,5 @@ func validateAzureRmLogAnalyticsWorkspaceName(v interface{}, k string) (ws []str
 		errors = append(errors, fmt.Errorf("Workspace Name can only be between 4 and 63 letters"))
 	}
 
-	return
+	return warnings, errors
 }

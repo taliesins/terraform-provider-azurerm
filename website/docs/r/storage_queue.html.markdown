@@ -3,18 +3,18 @@ layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_storage_queue"
 sidebar_current: "docs-azurerm-resource-storage-queue"
 description: |-
-  Create a Azure Storage Queue.
+  Manages a Azure Storage Queue.
 ---
 
-# azurerm\_storage\_queue
+# azurerm_storage_queue
 
-Create an Azure Storage Queue.
+Manage an Azure Storage Queue.
 
 ## Example Usage
 
 ```hcl
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "westus"
 }
 
@@ -49,4 +49,12 @@ The following arguments are supported:
 
 The following attributes are exported in addition to the arguments listed above:
 
-* `id` - The storage queue Resource ID.
+* `id` - The ID of the Storage Queue.
+
+## Import
+
+Storage Queue's can be imported using the `resource id`, e.g.
+
+```shell
+terraform import azurerm_storage_queue.queue1 https://example.queue.core.windows.net/queue1
+```

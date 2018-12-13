@@ -3,8 +3,9 @@ package azurerm
 import (
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -13,14 +14,12 @@ func dataSourceArmVirtualNetwork() *schema.Resource {
 		Read: dataSourceArmVnetRead,
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validate.NoEmptyStrings,
 			},
 
-			"resource_group_name": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
+			"resource_group_name": resourceGroupNameForDataSourceSchema(),
 
 			"address_spaces": {
 				Type:     schema.TypeList,
@@ -64,9 +63,10 @@ func dataSourceArmVnetRead(d *schema.ResourceData, meta interface{}) error {
 	resp, err := client.Get(ctx, resGroup, name, "")
 	if err != nil {
 		if utils.ResponseWasNotFound(resp.Response) {
-			return fmt.Errorf("Error making Read request on Azure virtual network %q (resource group %q): %+v", name, resGroup, err)
+			return fmt.Errorf("Error: Virtual Network %q (Resource Group %q) was not found", name, resGroup)
 		}
-		return err
+
+		return fmt.Errorf("Error making Read request on Virtual Network %q (resource group %q): %+v", name, resGroup, err)
 	}
 
 	d.SetId(*resp.ID)
@@ -120,7 +120,7 @@ func flattenVnetSubnetsNames(input *[]network.Subnet) []interface{} {
 }
 
 func flattenVnetPeerings(input *[]network.VirtualNetworkPeering) map[string]interface{} {
-	output := make(map[string]interface{}, 0)
+	output := make(map[string]interface{})
 
 	if peerings := input; peerings != nil {
 		for _, vnetpeering := range *peerings {

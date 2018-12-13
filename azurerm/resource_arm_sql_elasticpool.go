@@ -5,7 +5,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/sql/mgmt/2015-05-01-preview/sql"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
+
+	"github.com/Azure/azure-sdk-for-go/services/preview/sql/mgmt/2015-05-01-preview/sql"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
@@ -13,10 +15,11 @@ import (
 
 func resourceArmSqlElasticPool() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmSqlElasticPoolCreate,
+		Create: resourceArmSqlElasticPoolCreateUpdate,
 		Read:   resourceArmSqlElasticPoolRead,
-		Update: resourceArmSqlElasticPoolCreate,
+		Update: resourceArmSqlElasticPoolCreateUpdate,
 		Delete: resourceArmSqlElasticPoolDelete,
+
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -33,9 +36,10 @@ func resourceArmSqlElasticPool() *schema.Resource {
 			"resource_group_name": resourceGroupNameSchema(),
 
 			"server_name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateMsSqlServerName,
 			},
 
 			"edition": {
@@ -78,7 +82,7 @@ func resourceArmSqlElasticPool() *schema.Resource {
 	}
 }
 
-func resourceArmSqlElasticPoolCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceArmSqlElasticPoolCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).sqlElasticPoolsClient
 	ctx := meta.(*ArmClient).StopContext
 
@@ -86,7 +90,7 @@ func resourceArmSqlElasticPoolCreate(d *schema.ResourceData, meta interface{}) e
 
 	name := d.Get("name").(string)
 	serverName := d.Get("server_name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	resGroup := d.Get("resource_group_name").(string)
 	tags := d.Get("tags").(map[string]interface{})
 
@@ -94,7 +98,7 @@ func resourceArmSqlElasticPoolCreate(d *schema.ResourceData, meta interface{}) e
 		Name:                  &name,
 		Location:              &location,
 		ElasticPoolProperties: getArmSqlElasticPoolProperties(d),
-		Tags: expandTags(tags),
+		Tags:                  expandTags(tags),
 	}
 
 	future, err := client.CreateOrUpdate(ctx, resGroup, serverName, name, elasticPool)
@@ -102,8 +106,7 @@ func resourceArmSqlElasticPoolCreate(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -140,7 +143,9 @@ func resourceArmSqlElasticPoolRead(d *schema.ResourceData, meta interface{}) err
 
 	d.Set("name", resp.Name)
 	d.Set("resource_group_name", resGroup)
-	d.Set("location", azureRMNormalizeLocation(*resp.Location))
+	if location := resp.Location; location != nil {
+		d.Set("location", azureRMNormalizeLocation(*location))
+	}
 	d.Set("server_name", serverName)
 
 	if elasticPool := resp.ElasticPoolProperties; elasticPool != nil {

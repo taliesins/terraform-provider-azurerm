@@ -12,35 +12,67 @@ import (
 )
 
 func TestAccAzureRMServiceBusSubscription_basic(t *testing.T) {
+	resourceName := "azurerm_servicebus_subscription.test"
 	ri := acctest.RandInt()
 	config := testAccAzureRMServiceBusSubscription_basic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMServiceBusTopicDestroy,
+		CheckDestroy: testCheckAzureRMServiceBusSubscriptionDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMServiceBusSubscriptionExists("azurerm_servicebus_subscription.test"),
+					testCheckAzureRMServiceBusSubscriptionExists(resourceName),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
 }
 
-func TestAccAzureRMServiceBusSubscription_update(t *testing.T) {
+func TestAccAzureRMServiceBusSubscription_defaultTtl(t *testing.T) {
+	resourceName := "azurerm_servicebus_subscription.test"
+	ri := acctest.RandInt()
+	config := testAccAzureRMServiceBusSubscription_withDefaultTtl(ri, testLocation())
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMServiceBusSubscriptionDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMServiceBusSubscriptionExists(resourceName),
+					resource.TestCheckResourceAttr("azurerm_servicebus_subscription.test", "default_message_ttl", "PT1H"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccAzureRMServiceBusSubscription_updateEnableBatched(t *testing.T) {
 	resourceName := "azurerm_servicebus_subscription.test"
 	ri := acctest.RandInt()
 	location := testLocation()
 	preConfig := testAccAzureRMServiceBusSubscription_basic(ri, location)
-	postConfig := testAccAzureRMServiceBusSubscription_update(ri, location)
+	postConfig := testAccAzureRMServiceBusSubscription_updateEnableBatched(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMServiceBusTopicDestroy,
+		CheckDestroy: testCheckAzureRMServiceBusSubscriptionDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: preConfig,
@@ -54,6 +86,11 @@ func TestAccAzureRMServiceBusSubscription_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "enable_batched_operations", "true"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
@@ -65,10 +102,10 @@ func TestAccAzureRMServiceBusSubscription_updateRequiresSession(t *testing.T) {
 	preConfig := testAccAzureRMServiceBusSubscription_basic(ri, location)
 	postConfig := testAccAzureRMServiceBusSubscription_updateRequiresSession(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMServiceBusTopicDestroy,
+		CheckDestroy: testCheckAzureRMServiceBusSubscriptionDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: preConfig,
@@ -81,6 +118,46 @@ func TestAccAzureRMServiceBusSubscription_updateRequiresSession(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceName, "requires_session", "true"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccAzureRMServiceBusSubscription_updateForwardTo(t *testing.T) {
+	resourceName := "azurerm_servicebus_subscription.test"
+	ri := acctest.RandInt()
+	location := testLocation()
+	preConfig := testAccAzureRMServiceBusSubscription_basic(ri, location)
+	postConfig := testAccAzureRMServiceBusSubscription_updateForwardTo(ri, location)
+
+	expectedValue := fmt.Sprintf("acctestservicebustopic-forward_to-%d", ri)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMServiceBusSubscriptionDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: preConfig,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMServiceBusSubscriptionExists(resourceName),
+				),
+			},
+			{
+				Config: postConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "forward_to", expectedValue),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -148,94 +225,64 @@ func testCheckAzureRMServiceBusSubscriptionExists(name string) resource.TestChec
 	}
 }
 
+const testAccAzureRMServiceBusSubscription_tfTemplate = `
+resource "azurerm_resource_group" "test" {
+    name     = "acctestRG-%d"
+    location = "%s"
+}
+
+resource "azurerm_servicebus_namespace" "test" {
+    name                = "acctestservicebusnamespace-%d"
+    location            = "${azurerm_resource_group.test.location}"
+    resource_group_name = "${azurerm_resource_group.test.name}"
+    sku                 = "standard"
+}
+
+resource "azurerm_servicebus_topic" "test" {
+    name                = "acctestservicebustopic-%d"
+    namespace_name      = "${azurerm_servicebus_namespace.test.name}"
+    resource_group_name = "${azurerm_resource_group.test.name}"
+}
+
+resource "azurerm_servicebus_subscription" "test" {
+    name                = "acctestservicebussubscription-%d"
+    namespace_name      = "${azurerm_servicebus_namespace.test.name}"
+    topic_name          = "${azurerm_servicebus_topic.test.name}"
+    resource_group_name = "${azurerm_resource_group.test.name}"
+    max_delivery_count  = 10
+	%s
+}
+`
+
 func testAccAzureRMServiceBusSubscription_basic(rInt int, location string) string {
-	return fmt.Sprintf(`
-resource "azurerm_resource_group" "test" {
-    name = "acctestRG-%d"
-    location = "%s"
+	return fmt.Sprintf(testAccAzureRMServiceBusSubscription_tfTemplate, rInt, location, rInt, rInt, rInt, "")
 }
 
-resource "azurerm_servicebus_namespace" "test" {
-    name = "acctestservicebusnamespace-%d"
-    location = "${azurerm_resource_group.test.location}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    sku = "standard"
+func testAccAzureRMServiceBusSubscription_withDefaultTtl(rInt int, location string) string {
+	return fmt.Sprintf(testAccAzureRMServiceBusSubscription_tfTemplate, rInt, location, rInt, rInt, rInt,
+		"default_message_ttl = \"PT1H\"\n")
 }
 
-resource "azurerm_servicebus_topic" "test" {
-    name = "acctestservicebustopic-%d"
-    namespace_name = "${azurerm_servicebus_namespace.test.name}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-}
-
-resource "azurerm_servicebus_subscription" "test" {
-    name = "acctestservicebussubscription-%d"
-    namespace_name = "${azurerm_servicebus_namespace.test.name}"
-    topic_name = "${azurerm_servicebus_topic.test.name}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    max_delivery_count = 10
-}
-`, rInt, location, rInt, rInt, rInt)
-}
-
-func testAccAzureRMServiceBusSubscription_update(rInt int, location string) string {
-	return fmt.Sprintf(`
-resource "azurerm_resource_group" "test" {
-    name = "acctestRG-%d"
-    location = "%s"
-}
-
-resource "azurerm_servicebus_namespace" "test" {
-    name = "acctestservicebusnamespace-%d"
-    location = "${azurerm_resource_group.test.location}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    sku = "standard"
-}
-
-resource "azurerm_servicebus_topic" "test" {
-    name = "acctestservicebustopic-%d"
-    namespace_name = "${azurerm_servicebus_namespace.test.name}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-}
-
-resource "azurerm_servicebus_subscription" "test" {
-    name = "acctestservicebussubscription-%d"
-    namespace_name = "${azurerm_servicebus_namespace.test.name}"
-    topic_name = "${azurerm_servicebus_topic.test.name}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    max_delivery_count = 10
-    enable_batched_operations = true
-}
-`, rInt, location, rInt, rInt, rInt)
+func testAccAzureRMServiceBusSubscription_updateEnableBatched(rInt int, location string) string {
+	return fmt.Sprintf(testAccAzureRMServiceBusSubscription_tfTemplate, rInt, location, rInt, rInt, rInt,
+		"enable_batched_operations = true\n")
 }
 
 func testAccAzureRMServiceBusSubscription_updateRequiresSession(rInt int, location string) string {
-	return fmt.Sprintf(`
-resource "azurerm_resource_group" "test" {
-    name = "acctestRG-%d"
-    location = "%s"
+	return fmt.Sprintf(testAccAzureRMServiceBusSubscription_tfTemplate, rInt, location, rInt, rInt, rInt,
+		"requires_session = true\n")
 }
 
-resource "azurerm_servicebus_namespace" "test" {
-    name = "acctestservicebusnamespace-%d"
-    location = "${azurerm_resource_group.test.location}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    sku = "standard"
-}
+func testAccAzureRMServiceBusSubscription_updateForwardTo(rInt int, location string) string {
+	forwardToTf := testAccAzureRMServiceBusSubscription_tfTemplate + `
 
-resource "azurerm_servicebus_topic" "test" {
-    name = "acctestservicebustopic-%d"
+resource "azurerm_servicebus_topic" "forward_to" {
+    name = "acctestservicebustopic-forward_to-%d"
     namespace_name = "${azurerm_servicebus_namespace.test.name}"
     resource_group_name = "${azurerm_resource_group.test.name}"
 }
 
-resource "azurerm_servicebus_subscription" "test" {
-    name = "acctestservicebussubscription-%d"
-    namespace_name = "${azurerm_servicebus_namespace.test.name}"
-    topic_name = "${azurerm_servicebus_topic.test.name}"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    max_delivery_count = 10
-    requires_session = true
-}
-`, rInt, location, rInt, rInt, rInt)
+`
+	return fmt.Sprintf(forwardToTf, rInt, location, rInt, rInt, rInt,
+		"forward_to = \"${azurerm_servicebus_topic.forward_to.name}\"\n", rInt)
 }

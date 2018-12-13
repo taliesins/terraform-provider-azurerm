@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2017-05-10/resources"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-06-01/storage"
+	"github.com/Azure/azure-sdk-for-go/profiles/2017-03-09/resources/mgmt/resources"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -18,7 +18,8 @@ func TestAccAzureRMContainerRegistryMigrateState(t *testing.T) {
 		t.SkipNow()
 		return
 	}
-	client, err := getArmClient(config)
+
+	client, err := getArmClient(config, false)
 	if err != nil {
 		t.Fatal(fmt.Errorf("Error building ARM Client: %+v", err))
 		return
@@ -27,7 +28,7 @@ func TestAccAzureRMContainerRegistryMigrateState(t *testing.T) {
 	client.StopContext = testAccProvider.StopContext()
 
 	rs := acctest.RandString(4)
-	resourceGroupName := fmt.Sprintf("acctestrg%s", rs)
+	resourceGroupName := fmt.Sprintf("acctestRG%s", rs)
 	storageAccountName := fmt.Sprintf("acctestsa%s", rs)
 	location := azureRMNormalizeLocation(testLocation())
 	ctx := client.StopContext
@@ -101,8 +102,8 @@ func createResourceGroup(ctx context.Context, client *ArmClient, resourceGroupNa
 	group := resources.Group{
 		Location: &location,
 	}
-	_, err := client.resourceGroupsClient.CreateOrUpdate(ctx, resourceGroupName, group)
-	if err != nil {
+
+	if _, err := client.resourceGroupsClient.CreateOrUpdate(ctx, resourceGroupName, group); err != nil {
 		return fmt.Errorf("Error creating Resource Group %q: %+v", resourceGroupName, err)
 	}
 	return nil
@@ -119,12 +120,14 @@ func createStorageAccount(client *ArmClient, resourceGroupName, storageAccountNa
 		},
 	}
 	ctx := client.StopContext
-	createFuture, err := storageClient.Create(ctx, resourceGroupName, storageAccountName, createParams)
+	future, err := storageClient.Create(ctx, resourceGroupName, storageAccountName, createParams)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating Storage Account %q: %+v", resourceGroupName, err)
 	}
 
-	err = createFuture.WaitForCompletion(ctx, client.searchServicesClient.Client)
+	if err = future.WaitForCompletionRef(ctx, storageClient.Client); err != nil {
+		return nil, fmt.Errorf("Error waiting for creation of Storage Account %q: %+v", resourceGroupName, err)
+	}
 
 	account, err := storageClient.GetProperties(ctx, resourceGroupName, storageAccountName)
 	if err != nil {

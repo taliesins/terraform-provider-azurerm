@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
 func dataSourceArmSnapshot() *schema.Resource {
@@ -14,10 +15,8 @@ func dataSourceArmSnapshot() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"resource_group_name": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
+
+			"resource_group_name": resourceGroupNameForDataSourceSchema(),
 
 			// Computed
 			"os_type": {
@@ -108,12 +107,15 @@ func dataSourceArmSnapshotRead(d *schema.ResourceData, meta interface{}) error {
 
 	resp, err := client.Get(ctx, resourceGroup, name)
 	if err != nil {
+		if utils.ResponseWasNotFound(resp.Response) {
+			return fmt.Errorf("Error: Snapshot %q (Resource Group %q) was not found", name, resourceGroup)
+		}
 		return fmt.Errorf("Error loading Snapshot %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
 	d.SetId(*resp.ID)
 
-	if props := resp.DiskProperties; props != nil {
+	if props := resp.SnapshotProperties; props != nil {
 		d.Set("os_type", string(props.OsType))
 		d.Set("time_created", props.TimeCreated.String())
 

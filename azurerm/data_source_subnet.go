@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -12,19 +13,18 @@ func dataSourceArmSubnet() *schema.Resource {
 		Read: dataSourceArmSubnetRead,
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validate.NoEmptyStrings,
 			},
 
 			"virtual_network_name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validate.NoEmptyStrings,
 			},
 
-			"resource_group_name": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
+			"resource_group_name": resourceGroupNameForDataSourceSchema(),
 
 			"address_prefix": {
 				Type:     schema.TypeString,
@@ -57,25 +57,19 @@ func dataSourceArmSubnetRead(d *schema.ResourceData, meta interface{}) error {
 
 	name := d.Get("name").(string)
 	virtualNetworkName := d.Get("virtual_network_name").(string)
-	resourceGroupName := d.Get("resource_group_name").(string)
+	resourceGroup := d.Get("resource_group_name").(string)
 
-	resp, err := client.Get(ctx, resourceGroupName, virtualNetworkName, name, "")
-	if err != nil {
-		return fmt.Errorf("Error reading Subnet: %+v", err)
-	}
-
-	d.SetId(*resp.ID)
-
+	resp, err := client.Get(ctx, resourceGroup, virtualNetworkName, name, "")
 	if err != nil {
 		if utils.ResponseWasNotFound(resp.Response) {
-			d.SetId("")
-			return nil
+			return fmt.Errorf("Error: Subnet %q (Virtual Network %q / Resource Group %q) was not found", name, virtualNetworkName, resourceGroup)
 		}
 		return fmt.Errorf("Error making Read request on Azure Subnet %q: %+v", name, err)
 	}
+	d.SetId(*resp.ID)
 
 	d.Set("name", name)
-	d.Set("resource_group_name", resourceGroupName)
+	d.Set("resource_group_name", resourceGroup)
 	d.Set("virtual_network_name", virtualNetworkName)
 
 	if props := resp.SubnetPropertiesFormat; props != nil {
@@ -93,8 +87,7 @@ func dataSourceArmSubnetRead(d *schema.ResourceData, meta interface{}) error {
 			d.Set("route_table_id", "")
 		}
 
-		ips := flattenSubnetIPConfigurations(props.IPConfigurations)
-		if err := d.Set("ip_configurations", ips); err != nil {
+		if err := d.Set("ip_configurations", flattenSubnetIPConfigurations(props.IPConfigurations)); err != nil {
 			return err
 		}
 	}

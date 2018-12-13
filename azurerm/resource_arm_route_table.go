@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/suppress"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -15,19 +17,21 @@ var routeTableResourceName = "azurerm_route_table"
 
 func resourceArmRouteTable() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmRouteTableCreate,
+		Create: resourceArmRouteTableCreateUpdate,
 		Read:   resourceArmRouteTableRead,
-		Update: resourceArmRouteTableCreate,
+		Update: resourceArmRouteTableCreateUpdate,
 		Delete: resourceArmRouteTableDelete,
+
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: validate.NoEmptyStrings,
 			},
 
 			"location": locationSchema(),
@@ -41,13 +45,15 @@ func resourceArmRouteTable() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validate.NoEmptyStrings,
 						},
 
 						"address_prefix": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validate.NoEmptyStrings,
 						},
 
 						"next_hop_type": {
@@ -60,16 +66,22 @@ func resourceArmRouteTable() *schema.Resource {
 								string(network.RouteNextHopTypeVirtualAppliance),
 								string(network.RouteNextHopTypeNone),
 							}, true),
-							DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
+							DiffSuppressFunc: suppress.CaseDifference,
 						},
 
 						"next_hop_in_ip_address": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Computed: true,
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validate.NoEmptyStrings,
 						},
 					},
 				},
+			},
+
+			"disable_bgp_route_propagation": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
 			},
 
 			"subnets": {
@@ -84,27 +96,23 @@ func resourceArmRouteTable() *schema.Resource {
 	}
 }
 
-func resourceArmRouteTableCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceArmRouteTableCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).routeTablesClient
 	ctx := meta.(*ArmClient).StopContext
 
 	log.Printf("[INFO] preparing arguments for AzureRM Route Table creation.")
 
 	name := d.Get("name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	resGroup := d.Get("resource_group_name").(string)
 	tags := d.Get("tags").(map[string]interface{})
-
-	routes, err := expandRouteTableRoutes(d)
-	if err != nil {
-		return fmt.Errorf("Error Expanding list of Route Table Routes: %+v", err)
-	}
 
 	routeSet := network.RouteTable{
 		Name:     &name,
 		Location: &location,
 		RouteTablePropertiesFormat: &network.RouteTablePropertiesFormat{
-			Routes: &routes,
+			Routes:                     expandRouteTableRoutes(d),
+			DisableBgpRoutePropagation: utils.Bool(d.Get("disable_bgp_route_propagation").(bool)),
 		},
 		Tags: expandTags(tags),
 	}
@@ -114,8 +122,7 @@ func resourceArmRouteTableCreate(d *schema.ResourceData, meta interface{}) error
 		return fmt.Errorf("Error Creating/Updating Route Table %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for completion of Route Table %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
@@ -154,9 +161,12 @@ func resourceArmRouteTableRead(d *schema.ResourceData, meta interface{}) error {
 
 	d.Set("name", name)
 	d.Set("resource_group_name", resGroup)
-	d.Set("location", azureRMNormalizeLocation(*resp.Location))
+	if location := resp.Location; location != nil {
+		d.Set("location", azureRMNormalizeLocation(*location))
+	}
 
 	if props := resp.RouteTablePropertiesFormat; props != nil {
+		d.Set("disable_bgp_route_propagation", props.DisableBgpRoutePropagation)
 		if err := d.Set("route", flattenRouteTableRoutes(props.Routes)); err != nil {
 			return err
 		}
@@ -189,43 +199,36 @@ func resourceArmRouteTableDelete(d *schema.ResourceData, meta interface{}) error
 		}
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for deletion of Route Table %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
 	return nil
 }
 
-func expandRouteTableRoutes(d *schema.ResourceData) ([]network.Route, error) {
+func expandRouteTableRoutes(d *schema.ResourceData) *[]network.Route {
 	configs := d.Get("route").([]interface{})
 	routes := make([]network.Route, 0, len(configs))
 
 	for _, configRaw := range configs {
 		data := configRaw.(map[string]interface{})
 
-		addressPrefix := data["address_prefix"].(string)
-		nextHopType := data["next_hop_type"].(string)
-
-		properties := network.RoutePropertiesFormat{
-			AddressPrefix: &addressPrefix,
-			NextHopType:   network.RouteNextHopType(nextHopType),
+		route := network.Route{
+			Name: utils.String(data["name"].(string)),
+			RoutePropertiesFormat: &network.RoutePropertiesFormat{
+				AddressPrefix: utils.String(data["address_prefix"].(string)),
+				NextHopType:   network.RouteNextHopType(data["next_hop_type"].(string)),
+			},
 		}
 
 		if v := data["next_hop_in_ip_address"].(string); v != "" {
-			properties.NextHopIPAddress = &v
-		}
-
-		name := data["name"].(string)
-		route := network.Route{
-			Name: &name,
-			RoutePropertiesFormat: &properties,
+			route.RoutePropertiesFormat.NextHopIPAddress = &v
 		}
 
 		routes = append(routes, route)
 	}
 
-	return routes, nil
+	return &routes
 }
 
 func flattenRouteTableRoutes(input *[]network.Route) []interface{} {
@@ -252,10 +255,10 @@ func flattenRouteTableRoutes(input *[]network.Route) []interface{} {
 	return results
 }
 
-func flattenRouteTableSubnets(input *[]network.Subnet) []string {
-	output := []string{}
+func flattenRouteTableSubnets(subnets *[]network.Subnet) []string {
+	output := make([]string, 0)
 
-	if subnets := input; subnets != nil {
+	if subnets != nil {
 		for _, subnet := range *subnets {
 			output = append(output, *subnet.ID)
 		}

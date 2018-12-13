@@ -3,20 +3,20 @@ layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_storage_account"
 sidebar_current: "docs-azurerm-datasource-storage-account"
 description: |-
-  Gets information about the specified Storage Account.
+  Gets information about an existing Storage Account.
 
 ---
 
 # Data Source: azurerm_storage_account
 
-Gets information about the specified Storage Account.
+Use this data source to access information about an existing Storage Account.
 
 ## Example Usage
 
 ```hcl
 data "azurerm_storage_account" "test" {
-  name                 = "packerimages"
-  resource_group_name  = "packer-storage"
+  name                = "packerimages"
+  resource_group_name = "packer-storage"
 }
 
 output "storage_account_tier" {
@@ -35,13 +35,13 @@ output "storage_account_tier" {
 
 * `location` - The Azure location where the Storage Account exists
 
-* `account_kind` - Defines the Kind of account, either `BlobStorage` or `Storage`.
+* `account_kind` - The Kind of account.
 
-* `account_tier` - Defines the Tier of this storage account.
+* `account_tier` - The Tier of this storage account.
 
-* `account_replication_type` - Defines the type of replication used for this storage account.
+* `account_replication_type` - The type of replication used for this storage account.
 
-* `access_tier` - Defines the access tier for `BlobStorage` accounts.
+* `access_tier` - The access tier for `BlobStorage` accounts.
 
 * `enable_blob_encryption` - Are Encryption Services are enabled for Blob storage? See [here](https://azure.microsoft.com/en-us/documentation/articles/storage-service-encryption/)
     for more information.

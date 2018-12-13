@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/dns/mgmt/2016-04-01/dns"
+	"github.com/Azure/azure-sdk-for-go/services/preview/dns/mgmt/2018-03-01-preview/dns"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
 func resourceArmDnsTxtRecord() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmDnsTxtRecordCreateOrUpdate,
+		Create: resourceArmDnsTxtRecordCreateUpdate,
 		Read:   resourceArmDnsTxtRecordRead,
-		Update: resourceArmDnsTxtRecordCreateOrUpdate,
+		Update: resourceArmDnsTxtRecordCreateUpdate,
 		Delete: resourceArmDnsTxtRecordDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -56,7 +56,7 @@ func resourceArmDnsTxtRecord() *schema.Resource {
 	}
 }
 
-func resourceArmDnsTxtRecordCreateOrUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceArmDnsTxtRecordCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).dnsClient
 	ctx := meta.(*ArmClient).StopContext
 
@@ -144,9 +144,9 @@ func resourceArmDnsTxtRecordDelete(d *schema.ResourceData, meta interface{}) err
 	name := id.Path["TXT"]
 	zoneName := id.Path["dnszones"]
 
-	resp, error := client.Delete(ctx, resGroup, zoneName, name, dns.TXT, "")
+	resp, err := client.Delete(ctx, resGroup, zoneName, name, dns.TXT, "")
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Error deleting DNS TXT Record %s: %+v", name, error)
+		return fmt.Errorf("Error deleting DNS TXT Record %s: %+v", name, err)
 	}
 
 	return nil

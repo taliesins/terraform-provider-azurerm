@@ -3,19 +3,19 @@ layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_automation_account"
 sidebar_current: "docs-azurerm-resource-automation-account"
 description: |-
-  Creates a new Automation Account.
+  Manages a Automation Account.
 ---
 
-# azurerm\_automation\_account
+# azurerm_automation_account
 
-Creates a new Automation Account.
+Manages a Automation Account.
 
 ## Example Usage
 
 ```hcl
 resource "azurerm_resource_group" "example" {
- name = "resourceGroup1"
- location = "West Europe"
+  name     = "resourceGroup1"
+  location = "West Europe"
 }
 
 resource "azurerm_automation_account" "example" {
@@ -56,6 +56,12 @@ The following arguments are supported:
 The following attributes are exported:
 
 * `id` - The Automation Account ID.
+
+* `dsc_server_endpoint` - The DSC Server Endpoint associated with this Automation Account.
+
+* `dsc_primary_access_key` - The Primary Access Key for the DSC Endpoint associated with this Automation Account.
+
+* `dsc_secondary_access_key` - The Secondary Access Key for the DSC Endpoint associated with this Automation Account.
 
 ## Import
 

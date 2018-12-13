@@ -1,7 +1,10 @@
 package azurerm
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
 func dataSourceArmResourceGroup() *schema.Resource {
@@ -23,14 +26,13 @@ func dataSourceArmResourceGroupRead(d *schema.ResourceData, meta interface{}) er
 	name := d.Get("name").(string)
 	resp, err := client.Get(ctx, name)
 	if err != nil {
+		if utils.ResponseWasNotFound(resp.Response) {
+			return fmt.Errorf("Error: Resource Group %q was not found", name)
+		}
 		return err
 	}
 
 	d.SetId(*resp.ID)
 
-	if err := resourceArmResourceGroupRead(d, meta); err != nil {
-		return err
-	}
-
-	return nil
+	return resourceArmResourceGroupRead(d, meta)
 }

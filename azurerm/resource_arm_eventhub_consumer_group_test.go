@@ -11,40 +11,79 @@ import (
 )
 
 func TestAccAzureRMEventHubConsumerGroup_basic(t *testing.T) {
-
+	resourceName := "azurerm_eventhub_consumer_group.test"
 	ri := acctest.RandInt()
-	config := testAccAzureRMEventHubConsumerGroup_basic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMEventHubConsumerGroupDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: config,
+				Config: testAccAzureRMEventHubConsumerGroup_basic(ri, testLocation()),
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMEventHubConsumerGroupExists("azurerm_eventhub_consumer_group.test"),
+					testCheckAzureRMEventHubConsumerGroupExists(resourceName),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
 }
 
 func TestAccAzureRMEventHubConsumerGroup_complete(t *testing.T) {
-
+	resourceName := "azurerm_eventhub_consumer_group.test"
 	ri := acctest.RandInt()
-	config := testAccAzureRMEventHubConsumerGroup_complete(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMEventHubConsumerGroupDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: config,
+				Config: testAccAzureRMEventHubConsumerGroup_complete(ri, testLocation()),
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMEventHubConsumerGroupExists("azurerm_eventhub_consumer_group.test"),
+					testCheckAzureRMEventHubConsumerGroupExists(resourceName),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccAzureRMEventHubConsumerGroup_userMetadataUpdate(t *testing.T) {
+	resourceName := "azurerm_eventhub_consumer_group.test"
+	ri := acctest.RandInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMEventHubConsumerGroupDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAzureRMEventHubConsumerGroup_basic(ri, testLocation()),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMEventHubConsumerGroupExists(resourceName),
+				),
+			},
+			{
+				Config: testAccAzureRMEventHubConsumerGroup_complete(ri, testLocation()),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMEventHubConsumerGroupExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "user_metadata", "some-meta-data"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})

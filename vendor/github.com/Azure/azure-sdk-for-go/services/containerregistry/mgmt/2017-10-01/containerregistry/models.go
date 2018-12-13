@@ -26,6 +26,21 @@ import (
 	"net/http"
 )
 
+// ImportMode enumerates the values for import mode.
+type ImportMode string
+
+const (
+	// Force ...
+	Force ImportMode = "Force"
+	// NoForce ...
+	NoForce ImportMode = "NoForce"
+)
+
+// PossibleImportModeValues returns an array of possible values for the ImportMode const type.
+func PossibleImportModeValues() []ImportMode {
+	return []ImportMode{Force, NoForce}
+}
+
 // PasswordName enumerates the values for password name.
 type PasswordName string
 
@@ -35,6 +50,26 @@ const (
 	// Password2 ...
 	Password2 PasswordName = "password2"
 )
+
+// PossiblePasswordNameValues returns an array of possible values for the PasswordName const type.
+func PossiblePasswordNameValues() []PasswordName {
+	return []PasswordName{Password, Password2}
+}
+
+// PolicyStatus enumerates the values for policy status.
+type PolicyStatus string
+
+const (
+	// Disabled ...
+	Disabled PolicyStatus = "disabled"
+	// Enabled ...
+	Enabled PolicyStatus = "enabled"
+)
+
+// PossiblePolicyStatusValues returns an array of possible values for the PolicyStatus const type.
+func PossiblePolicyStatusValues() []PolicyStatus {
+	return []PolicyStatus{Disabled, Enabled}
+}
 
 // ProvisioningState enumerates the values for provisioning state.
 type ProvisioningState string
@@ -54,6 +89,11 @@ const (
 	Updating ProvisioningState = "Updating"
 )
 
+// PossibleProvisioningStateValues returns an array of possible values for the ProvisioningState const type.
+func PossibleProvisioningStateValues() []ProvisioningState {
+	return []ProvisioningState{Canceled, Creating, Deleting, Failed, Succeeded, Updating}
+}
+
 // RegistryUsageUnit enumerates the values for registry usage unit.
 type RegistryUsageUnit string
 
@@ -63,6 +103,11 @@ const (
 	// Count ...
 	Count RegistryUsageUnit = "Count"
 )
+
+// PossibleRegistryUsageUnitValues returns an array of possible values for the RegistryUsageUnit const type.
+func PossibleRegistryUsageUnitValues() []RegistryUsageUnit {
+	return []RegistryUsageUnit{Bytes, Count}
+}
 
 // SkuName enumerates the values for sku name.
 type SkuName string
@@ -78,6 +123,11 @@ const (
 	Standard SkuName = "Standard"
 )
 
+// PossibleSkuNameValues returns an array of possible values for the SkuName const type.
+func PossibleSkuNameValues() []SkuName {
+	return []SkuName{Basic, Classic, Premium, Standard}
+}
+
 // SkuTier enumerates the values for sku tier.
 type SkuTier string
 
@@ -92,6 +142,24 @@ const (
 	SkuTierStandard SkuTier = "Standard"
 )
 
+// PossibleSkuTierValues returns an array of possible values for the SkuTier const type.
+func PossibleSkuTierValues() []SkuTier {
+	return []SkuTier{SkuTierBasic, SkuTierClassic, SkuTierPremium, SkuTierStandard}
+}
+
+// TrustPolicyType enumerates the values for trust policy type.
+type TrustPolicyType string
+
+const (
+	// Notary ...
+	Notary TrustPolicyType = "Notary"
+)
+
+// PossibleTrustPolicyTypeValues returns an array of possible values for the TrustPolicyType const type.
+func PossibleTrustPolicyTypeValues() []TrustPolicyType {
+	return []TrustPolicyType{Notary}
+}
+
 // WebhookAction enumerates the values for webhook action.
 type WebhookAction string
 
@@ -100,20 +168,32 @@ const (
 	Delete WebhookAction = "delete"
 	// Push ...
 	Push WebhookAction = "push"
+	// Quarantine ...
+	Quarantine WebhookAction = "quarantine"
 )
+
+// PossibleWebhookActionValues returns an array of possible values for the WebhookAction const type.
+func PossibleWebhookActionValues() []WebhookAction {
+	return []WebhookAction{Delete, Push, Quarantine}
+}
 
 // WebhookStatus enumerates the values for webhook status.
 type WebhookStatus string
 
 const (
-	// Disabled ...
-	Disabled WebhookStatus = "disabled"
-	// Enabled ...
-	Enabled WebhookStatus = "enabled"
+	// WebhookStatusDisabled ...
+	WebhookStatusDisabled WebhookStatus = "disabled"
+	// WebhookStatusEnabled ...
+	WebhookStatusEnabled WebhookStatus = "enabled"
 )
 
-// Actor the agent that initiated the event. For most situations, this could be from the authorization context of the
-// request.
+// PossibleWebhookStatusValues returns an array of possible values for the WebhookStatus const type.
+func PossibleWebhookStatusValues() []WebhookStatus {
+	return []WebhookStatus{WebhookStatusDisabled, WebhookStatusEnabled}
+}
+
+// Actor the agent that initiated the event. For most situations, this could be from the authorization context of
+// the request.
 type Actor struct {
 	// Name - The subject or username associated with the request context that generated the event.
 	Name *string `json:"name,omitempty"`
@@ -125,17 +205,29 @@ type CallbackConfig struct {
 	// ServiceURI - The service URI for the webhook to post notifications.
 	ServiceURI *string `json:"serviceUri,omitempty"`
 	// CustomHeaders - Custom headers that will be added to the webhook notifications.
-	CustomHeaders *map[string]*string `json:"customHeaders,omitempty"`
+	CustomHeaders map[string]*string `json:"customHeaders"`
+}
+
+// MarshalJSON is the custom marshaler for CallbackConfig.
+func (cc CallbackConfig) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if cc.ServiceURI != nil {
+		objectMap["serviceUri"] = cc.ServiceURI
+	}
+	if cc.CustomHeaders != nil {
+		objectMap["customHeaders"] = cc.CustomHeaders
+	}
+	return json.Marshal(objectMap)
 }
 
 // Event the event for a webhook.
 type Event struct {
-	// ID - The event ID.
-	ID *string `json:"id,omitempty"`
 	// EventRequestMessage - The event request message sent to the service URI.
 	EventRequestMessage *EventRequestMessage `json:"eventRequestMessage,omitempty"`
 	// EventResponseMessage - The event response message received from the service URI.
 	EventResponseMessage *EventResponseMessage `json:"eventResponseMessage,omitempty"`
+	// ID - The event ID.
+	ID *string `json:"id,omitempty"`
 }
 
 // EventContent the content of the event request message.
@@ -270,7 +362,7 @@ type EventRequestMessage struct {
 	// Content - The content of the event request message.
 	Content *EventContent `json:"content,omitempty"`
 	// Headers - The headers of the event request message.
-	Headers *map[string]*string `json:"headers,omitempty"`
+	Headers map[string]*string `json:"headers"`
 	// Method - The HTTP method used to send the event request message.
 	Method *string `json:"method,omitempty"`
 	// RequestURI - The URI used to send the event request message.
@@ -279,12 +371,33 @@ type EventRequestMessage struct {
 	Version *string `json:"version,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for EventRequestMessage.
+func (erm EventRequestMessage) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if erm.Content != nil {
+		objectMap["content"] = erm.Content
+	}
+	if erm.Headers != nil {
+		objectMap["headers"] = erm.Headers
+	}
+	if erm.Method != nil {
+		objectMap["method"] = erm.Method
+	}
+	if erm.RequestURI != nil {
+		objectMap["requestUri"] = erm.RequestURI
+	}
+	if erm.Version != nil {
+		objectMap["version"] = erm.Version
+	}
+	return json.Marshal(objectMap)
+}
+
 // EventResponseMessage the event response message received from the service URI.
 type EventResponseMessage struct {
 	// Content - The content of the event response message.
 	Content *string `json:"content,omitempty"`
 	// Headers - The headers of the event response message.
-	Headers *map[string]*string `json:"headers,omitempty"`
+	Headers map[string]*string `json:"headers"`
 	// ReasonPhrase - The reason phrase of the event response message.
 	ReasonPhrase *string `json:"reasonPhrase,omitempty"`
 	// StatusCode - The status code of the event response message.
@@ -293,12 +406,141 @@ type EventResponseMessage struct {
 	Version *string `json:"version,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for EventResponseMessage.
+func (erm EventResponseMessage) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if erm.Content != nil {
+		objectMap["content"] = erm.Content
+	}
+	if erm.Headers != nil {
+		objectMap["headers"] = erm.Headers
+	}
+	if erm.ReasonPhrase != nil {
+		objectMap["reasonPhrase"] = erm.ReasonPhrase
+	}
+	if erm.StatusCode != nil {
+		objectMap["statusCode"] = erm.StatusCode
+	}
+	if erm.Version != nil {
+		objectMap["version"] = erm.Version
+	}
+	return json.Marshal(objectMap)
+}
+
+// ImportImageParameters ...
+type ImportImageParameters struct {
+	// Source - The source of the image.
+	Source *ImportSource `json:"source,omitempty"`
+	// TargetTags - List of strings of the form repo[:tag]. When tag is omitted the source will be used (or 'latest' if source tag is also omitted).
+	TargetTags *[]string `json:"targetTags,omitempty"`
+	// UntaggedTargetRepositories - List of strings of repository names to do a manifest only copy. No tag will be created.
+	UntaggedTargetRepositories *[]string `json:"untaggedTargetRepositories,omitempty"`
+	// Mode - When Force, any existing target tags will be overwritten. When NoForce, any existing target tags will fail the operation before any copying begins. Possible values include: 'NoForce', 'Force'
+	Mode ImportMode `json:"mode,omitempty"`
+}
+
+// ImportSource ...
+type ImportSource struct {
+	// ResourceID - The resource identifier of the source Azure Container Registry.
+	ResourceID *string `json:"resourceId,omitempty"`
+	// RegistryURI - The address of the source registry (e.g. 'mcr.microsoft.com').
+	RegistryURI *string `json:"registryUri,omitempty"`
+	// Credentials - Credentials used when importing from a registry uri.
+	Credentials *ImportSourceCredentials `json:"credentials,omitempty"`
+	// SourceImage - Repository name of the source image.
+	// Specify an image by repository ('hello-world'). This will use the 'latest' tag.
+	// Specify an image by tag ('hello-world:latest').
+	// Specify an image by sha256-based manifest digest ('hello-world@sha256:abc123').
+	SourceImage *string `json:"sourceImage,omitempty"`
+}
+
+// ImportSourceCredentials ...
+type ImportSourceCredentials struct {
+	// Username - The username to authenticate with the source registry.
+	Username *string `json:"username,omitempty"`
+	// Password - The password used to authenticate with the source registry.
+	Password *string `json:"password,omitempty"`
+}
+
 // OperationDefinition the definition of a container registry operation.
 type OperationDefinition struct {
+	// Origin - The origin information of the container registry operation.
+	Origin *string `json:"origin,omitempty"`
 	// Name - Operation name: {provider}/{resource}/{operation}.
 	Name *string `json:"name,omitempty"`
 	// Display - The display information for the container registry operation.
 	Display *OperationDisplayDefinition `json:"display,omitempty"`
+	// OperationPropertiesDefinition - The properties information for the container registry operation.
+	*OperationPropertiesDefinition `json:"properties,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for OperationDefinition.
+func (od OperationDefinition) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if od.Origin != nil {
+		objectMap["origin"] = od.Origin
+	}
+	if od.Name != nil {
+		objectMap["name"] = od.Name
+	}
+	if od.Display != nil {
+		objectMap["display"] = od.Display
+	}
+	if od.OperationPropertiesDefinition != nil {
+		objectMap["properties"] = od.OperationPropertiesDefinition
+	}
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON is the custom unmarshaler for OperationDefinition struct.
+func (od *OperationDefinition) UnmarshalJSON(body []byte) error {
+	var m map[string]*json.RawMessage
+	err := json.Unmarshal(body, &m)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		switch k {
+		case "origin":
+			if v != nil {
+				var origin string
+				err = json.Unmarshal(*v, &origin)
+				if err != nil {
+					return err
+				}
+				od.Origin = &origin
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				od.Name = &name
+			}
+		case "display":
+			if v != nil {
+				var display OperationDisplayDefinition
+				err = json.Unmarshal(*v, &display)
+				if err != nil {
+					return err
+				}
+				od.Display = &display
+			}
+		case "properties":
+			if v != nil {
+				var operationPropertiesDefinition OperationPropertiesDefinition
+				err = json.Unmarshal(*v, &operationPropertiesDefinition)
+				if err != nil {
+					return err
+				}
+				od.OperationPropertiesDefinition = &operationPropertiesDefinition
+			}
+		}
+	}
+
+	return nil
 }
 
 // OperationDisplayDefinition the display information for a container registry operation.
@@ -415,6 +657,40 @@ func (page OperationListResultPage) Values() []OperationDefinition {
 	return *page.olr.Value
 }
 
+// OperationMetricSpecificationDefinition the definition of Azure Monitoring metric.
+type OperationMetricSpecificationDefinition struct {
+	// Name - Metric name.
+	Name *string `json:"name,omitempty"`
+	// DisplayName - Metric display name.
+	DisplayName *string `json:"displayName,omitempty"`
+	// DisplayDescription - Metric description.
+	DisplayDescription *string `json:"displayDescription,omitempty"`
+	// Unit - Metric unit.
+	Unit *string `json:"unit,omitempty"`
+	// AggregationType - Metric aggregation type.
+	AggregationType *string `json:"aggregationType,omitempty"`
+	// InternalMetricName - Internal metric name.
+	InternalMetricName *string `json:"internalMetricName,omitempty"`
+}
+
+// OperationPropertiesDefinition the definition of Azure Monitoring properties.
+type OperationPropertiesDefinition struct {
+	// ServiceSpecification - The definition of Azure Monitoring service.
+	ServiceSpecification *OperationServiceSpecificationDefinition `json:"serviceSpecification,omitempty"`
+}
+
+// OperationServiceSpecificationDefinition the definition of Azure Monitoring metrics list.
+type OperationServiceSpecificationDefinition struct {
+	// MetricSpecifications - A list of Azure Monitoring metrics definition.
+	MetricSpecifications *[]OperationMetricSpecificationDefinition `json:"metricSpecifications,omitempty"`
+}
+
+// QuarantinePolicy an object that represents quarantine policy for a container registry.
+type QuarantinePolicy struct {
+	// Status - The value that indicates whether the policy is enabled or not. Possible values include: 'Enabled', 'Disabled'
+	Status PolicyStatus `json:"status,omitempty"`
+}
+
 // RegenerateCredentialParameters the parameters used to regenerate the login credential.
 type RegenerateCredentialParameters struct {
 	// Name - Specifies name of the password which should be regenerated -- password or password2. Possible values include: 'Password', 'Password2'
@@ -424,99 +700,142 @@ type RegenerateCredentialParameters struct {
 // RegistriesCreateFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type RegistriesCreateFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future RegistriesCreateFuture) Result(client RegistriesClient) (r Registry, err error) {
+func (future *RegistriesCreateFuture) Result(client RegistriesClient) (r Registry, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.RegistriesCreateFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return r, autorest.NewError("containerregistry.RegistriesCreateFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		r, err = client.CreateResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.RegistriesCreateFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
-	if err != nil {
-		return
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if r.Response.Response, err = future.GetResult(sender); err == nil && r.Response.Response.StatusCode != http.StatusNoContent {
+		r, err = client.CreateResponder(r.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.RegistriesCreateFuture", "Result", r.Response.Response, "Failure responding to request")
+		}
 	}
-	r, err = client.CreateResponder(resp)
 	return
 }
 
 // RegistriesDeleteFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type RegistriesDeleteFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future RegistriesDeleteFuture) Result(client RegistriesClient) (ar autorest.Response, err error) {
+func (future *RegistriesDeleteFuture) Result(client RegistriesClient) (ar autorest.Response, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.RegistriesDeleteFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return ar, autorest.NewError("containerregistry.RegistriesDeleteFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		ar, err = client.DeleteResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.RegistriesDeleteFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	ar.Response = future.Response()
+	return
+}
+
+// RegistriesImportImageFuture an abstraction for monitoring and retrieving the results of a long-running
+// operation.
+type RegistriesImportImageFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *RegistriesImportImageFuture) Result(client RegistriesClient) (ar autorest.Response, err error) {
+	var done bool
+	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.RegistriesImportImageFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
-	ar, err = client.DeleteResponder(resp)
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("containerregistry.RegistriesImportImageFuture")
+		return
+	}
+	ar.Response = future.Response()
 	return
 }
 
 // RegistriesUpdateFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type RegistriesUpdateFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future RegistriesUpdateFuture) Result(client RegistriesClient) (r Registry, err error) {
+func (future *RegistriesUpdateFuture) Result(client RegistriesClient) (r Registry, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.RegistriesUpdateFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return r, autorest.NewError("containerregistry.RegistriesUpdateFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		r, err = client.UpdateResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.RegistriesUpdateFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if r.Response.Response, err = future.GetResult(sender); err == nil && r.Response.Response.StatusCode != http.StatusNoContent {
+		r, err = client.UpdateResponder(r.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.RegistriesUpdateFuture", "Result", r.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
+// RegistriesUpdatePoliciesFuture an abstraction for monitoring and retrieving the results of a long-running
+// operation.
+type RegistriesUpdatePoliciesFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *RegistriesUpdatePoliciesFuture) Result(client RegistriesClient) (rp RegistryPolicies, err error) {
+	var done bool
+	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.RegistriesUpdatePoliciesFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
-	r, err = client.UpdateResponder(resp)
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("containerregistry.RegistriesUpdatePoliciesFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if rp.Response.Response, err = future.GetResult(sender); err == nil && rp.Response.Response.StatusCode != http.StatusNoContent {
+		rp, err = client.UpdatePoliciesResponder(rp.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.RegistriesUpdatePoliciesFuture", "Result", rp.Response.Response, "Failure responding to request")
+		}
+	}
 	return
 }
 
 // Registry an object that represents a container registry.
 type Registry struct {
 	autorest.Response `json:"-"`
+	// Sku - The SKU of the container registry.
+	Sku *Sku `json:"sku,omitempty"`
+	// Identity - The identity of the container registry.
+	Identity *RegistryIdentity `json:"identity,omitempty"`
+	// RegistryProperties - The properties of the container registry.
+	*RegistryProperties `json:"properties,omitempty"`
 	// ID - The resource ID.
 	ID *string `json:"id,omitempty"`
 	// Name - The name of the resource.
@@ -526,11 +845,37 @@ type Registry struct {
 	// Location - The location of the resource. This cannot be changed after the resource is created.
 	Location *string `json:"location,omitempty"`
 	// Tags - The tags of the resource.
-	Tags *map[string]*string `json:"tags,omitempty"`
-	// Sku - The SKU of the container registry.
-	Sku *Sku `json:"sku,omitempty"`
-	// RegistryProperties - The properties of the container registry.
-	*RegistryProperties `json:"properties,omitempty"`
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for Registry.
+func (r Registry) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if r.Sku != nil {
+		objectMap["sku"] = r.Sku
+	}
+	if r.Identity != nil {
+		objectMap["identity"] = r.Identity
+	}
+	if r.RegistryProperties != nil {
+		objectMap["properties"] = r.RegistryProperties
+	}
+	if r.ID != nil {
+		objectMap["id"] = r.ID
+	}
+	if r.Name != nil {
+		objectMap["name"] = r.Name
+	}
+	if r.Type != nil {
+		objectMap["type"] = r.Type
+	}
+	if r.Location != nil {
+		objectMap["location"] = r.Location
+	}
+	if r.Tags != nil {
+		objectMap["tags"] = r.Tags
+	}
+	return json.Marshal(objectMap)
 }
 
 // UnmarshalJSON is the custom unmarshaler for Registry struct.
@@ -540,79 +885,94 @@ func (r *Registry) UnmarshalJSON(body []byte) error {
 	if err != nil {
 		return err
 	}
-	var v *json.RawMessage
-
-	v = m["sku"]
-	if v != nil {
-		var sku Sku
-		err = json.Unmarshal(*m["sku"], &sku)
-		if err != nil {
-			return err
+	for k, v := range m {
+		switch k {
+		case "sku":
+			if v != nil {
+				var sku Sku
+				err = json.Unmarshal(*v, &sku)
+				if err != nil {
+					return err
+				}
+				r.Sku = &sku
+			}
+		case "identity":
+			if v != nil {
+				var identity RegistryIdentity
+				err = json.Unmarshal(*v, &identity)
+				if err != nil {
+					return err
+				}
+				r.Identity = &identity
+			}
+		case "properties":
+			if v != nil {
+				var registryProperties RegistryProperties
+				err = json.Unmarshal(*v, &registryProperties)
+				if err != nil {
+					return err
+				}
+				r.RegistryProperties = &registryProperties
+			}
+		case "id":
+			if v != nil {
+				var ID string
+				err = json.Unmarshal(*v, &ID)
+				if err != nil {
+					return err
+				}
+				r.ID = &ID
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				r.Name = &name
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				r.Type = &typeVar
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				r.Location = &location
+			}
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				r.Tags = tags
+			}
 		}
-		r.Sku = &sku
-	}
-
-	v = m["properties"]
-	if v != nil {
-		var properties RegistryProperties
-		err = json.Unmarshal(*m["properties"], &properties)
-		if err != nil {
-			return err
-		}
-		r.RegistryProperties = &properties
-	}
-
-	v = m["id"]
-	if v != nil {
-		var ID string
-		err = json.Unmarshal(*m["id"], &ID)
-		if err != nil {
-			return err
-		}
-		r.ID = &ID
-	}
-
-	v = m["name"]
-	if v != nil {
-		var name string
-		err = json.Unmarshal(*m["name"], &name)
-		if err != nil {
-			return err
-		}
-		r.Name = &name
-	}
-
-	v = m["type"]
-	if v != nil {
-		var typeVar string
-		err = json.Unmarshal(*m["type"], &typeVar)
-		if err != nil {
-			return err
-		}
-		r.Type = &typeVar
-	}
-
-	v = m["location"]
-	if v != nil {
-		var location string
-		err = json.Unmarshal(*m["location"], &location)
-		if err != nil {
-			return err
-		}
-		r.Location = &location
-	}
-
-	v = m["tags"]
-	if v != nil {
-		var tags map[string]*string
-		err = json.Unmarshal(*m["tags"], &tags)
-		if err != nil {
-			return err
-		}
-		r.Tags = &tags
 	}
 
 	return nil
+}
+
+// RegistryIdentity the identity of the container registry.
+type RegistryIdentity struct {
+	// Type - The type of identity used for the registry.
+	Type *string `json:"type,omitempty"`
+	// PrincipalID - The principal ID of registry identity.
+	PrincipalID *string `json:"principalId,omitempty"`
+	// TenantID - The tenant ID associated with the registry.
+	TenantID *string `json:"tenantId,omitempty"`
 }
 
 // RegistryListCredentialsResult the response from the ListCredentials operation.
@@ -753,6 +1113,15 @@ type RegistryPassword struct {
 	Value *string `json:"value,omitempty"`
 }
 
+// RegistryPolicies an object that represents policies for a container registry.
+type RegistryPolicies struct {
+	autorest.Response `json:"-"`
+	// QuarantinePolicy - An object that represents quarantine policy for a container registry.
+	QuarantinePolicy *QuarantinePolicy `json:"quarantinePolicy,omitempty"`
+	// TrustPolicy - An object that represents content trust policy for a container registry.
+	TrustPolicy *TrustPolicy `json:"trustPolicy,omitempty"`
+}
+
 // RegistryProperties the properties of a container registry.
 type RegistryProperties struct {
 	// LoginServer - The URL that can be used to log into the container registry.
@@ -780,11 +1149,31 @@ type RegistryPropertiesUpdateParameters struct {
 // RegistryUpdateParameters the parameters for updating a container registry.
 type RegistryUpdateParameters struct {
 	// Tags - The tags for the container registry.
-	Tags *map[string]*string `json:"tags,omitempty"`
+	Tags map[string]*string `json:"tags"`
 	// Sku - The SKU of the container registry.
 	Sku *Sku `json:"sku,omitempty"`
+	// Identity - The identity of the container registry.
+	Identity *RegistryIdentity `json:"identity,omitempty"`
 	// RegistryPropertiesUpdateParameters - The properties that the container registry will be updated with.
 	*RegistryPropertiesUpdateParameters `json:"properties,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for RegistryUpdateParameters.
+func (rup RegistryUpdateParameters) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if rup.Tags != nil {
+		objectMap["tags"] = rup.Tags
+	}
+	if rup.Sku != nil {
+		objectMap["sku"] = rup.Sku
+	}
+	if rup.Identity != nil {
+		objectMap["identity"] = rup.Identity
+	}
+	if rup.RegistryPropertiesUpdateParameters != nil {
+		objectMap["properties"] = rup.RegistryPropertiesUpdateParameters
+	}
+	return json.Marshal(objectMap)
 }
 
 // UnmarshalJSON is the custom unmarshaler for RegistryUpdateParameters struct.
@@ -794,36 +1183,45 @@ func (rup *RegistryUpdateParameters) UnmarshalJSON(body []byte) error {
 	if err != nil {
 		return err
 	}
-	var v *json.RawMessage
-
-	v = m["tags"]
-	if v != nil {
-		var tags map[string]*string
-		err = json.Unmarshal(*m["tags"], &tags)
-		if err != nil {
-			return err
+	for k, v := range m {
+		switch k {
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				rup.Tags = tags
+			}
+		case "sku":
+			if v != nil {
+				var sku Sku
+				err = json.Unmarshal(*v, &sku)
+				if err != nil {
+					return err
+				}
+				rup.Sku = &sku
+			}
+		case "identity":
+			if v != nil {
+				var identity RegistryIdentity
+				err = json.Unmarshal(*v, &identity)
+				if err != nil {
+					return err
+				}
+				rup.Identity = &identity
+			}
+		case "properties":
+			if v != nil {
+				var registryPropertiesUpdateParameters RegistryPropertiesUpdateParameters
+				err = json.Unmarshal(*v, &registryPropertiesUpdateParameters)
+				if err != nil {
+					return err
+				}
+				rup.RegistryPropertiesUpdateParameters = &registryPropertiesUpdateParameters
+			}
 		}
-		rup.Tags = &tags
-	}
-
-	v = m["sku"]
-	if v != nil {
-		var sku Sku
-		err = json.Unmarshal(*m["sku"], &sku)
-		if err != nil {
-			return err
-		}
-		rup.Sku = &sku
-	}
-
-	v = m["properties"]
-	if v != nil {
-		var properties RegistryPropertiesUpdateParameters
-		err = json.Unmarshal(*m["properties"], &properties)
-		if err != nil {
-			return err
-		}
-		rup.RegistryPropertiesUpdateParameters = &properties
 	}
 
 	return nil
@@ -851,6 +1249,8 @@ type RegistryUsageListResult struct {
 // Replication an object that represents a replication for a container registry.
 type Replication struct {
 	autorest.Response `json:"-"`
+	// ReplicationProperties - The properties of the replication.
+	*ReplicationProperties `json:"properties,omitempty"`
 	// ID - The resource ID.
 	ID *string `json:"id,omitempty"`
 	// Name - The name of the resource.
@@ -860,9 +1260,31 @@ type Replication struct {
 	// Location - The location of the resource. This cannot be changed after the resource is created.
 	Location *string `json:"location,omitempty"`
 	// Tags - The tags of the resource.
-	Tags *map[string]*string `json:"tags,omitempty"`
-	// ReplicationProperties - The properties of the replication.
-	*ReplicationProperties `json:"properties,omitempty"`
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for Replication.
+func (r Replication) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if r.ReplicationProperties != nil {
+		objectMap["properties"] = r.ReplicationProperties
+	}
+	if r.ID != nil {
+		objectMap["id"] = r.ID
+	}
+	if r.Name != nil {
+		objectMap["name"] = r.Name
+	}
+	if r.Type != nil {
+		objectMap["type"] = r.Type
+	}
+	if r.Location != nil {
+		objectMap["location"] = r.Location
+	}
+	if r.Tags != nil {
+		objectMap["tags"] = r.Tags
+	}
+	return json.Marshal(objectMap)
 }
 
 // UnmarshalJSON is the custom unmarshaler for Replication struct.
@@ -872,66 +1294,63 @@ func (r *Replication) UnmarshalJSON(body []byte) error {
 	if err != nil {
 		return err
 	}
-	var v *json.RawMessage
-
-	v = m["properties"]
-	if v != nil {
-		var properties ReplicationProperties
-		err = json.Unmarshal(*m["properties"], &properties)
-		if err != nil {
-			return err
+	for k, v := range m {
+		switch k {
+		case "properties":
+			if v != nil {
+				var replicationProperties ReplicationProperties
+				err = json.Unmarshal(*v, &replicationProperties)
+				if err != nil {
+					return err
+				}
+				r.ReplicationProperties = &replicationProperties
+			}
+		case "id":
+			if v != nil {
+				var ID string
+				err = json.Unmarshal(*v, &ID)
+				if err != nil {
+					return err
+				}
+				r.ID = &ID
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				r.Name = &name
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				r.Type = &typeVar
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				r.Location = &location
+			}
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				r.Tags = tags
+			}
 		}
-		r.ReplicationProperties = &properties
-	}
-
-	v = m["id"]
-	if v != nil {
-		var ID string
-		err = json.Unmarshal(*m["id"], &ID)
-		if err != nil {
-			return err
-		}
-		r.ID = &ID
-	}
-
-	v = m["name"]
-	if v != nil {
-		var name string
-		err = json.Unmarshal(*m["name"], &name)
-		if err != nil {
-			return err
-		}
-		r.Name = &name
-	}
-
-	v = m["type"]
-	if v != nil {
-		var typeVar string
-		err = json.Unmarshal(*m["type"], &typeVar)
-		if err != nil {
-			return err
-		}
-		r.Type = &typeVar
-	}
-
-	v = m["location"]
-	if v != nil {
-		var location string
-		err = json.Unmarshal(*m["location"], &location)
-		if err != nil {
-			return err
-		}
-		r.Location = &location
-	}
-
-	v = m["tags"]
-	if v != nil {
-		var tags map[string]*string
-		err = json.Unmarshal(*m["tags"], &tags)
-		if err != nil {
-			return err
-		}
-		r.Tags = &tags
 	}
 
 	return nil
@@ -1050,100 +1469,94 @@ type ReplicationProperties struct {
 // ReplicationsCreateFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type ReplicationsCreateFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future ReplicationsCreateFuture) Result(client ReplicationsClient) (r Replication, err error) {
+func (future *ReplicationsCreateFuture) Result(client ReplicationsClient) (r Replication, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.ReplicationsCreateFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return r, autorest.NewError("containerregistry.ReplicationsCreateFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		r, err = client.CreateResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.ReplicationsCreateFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
-	if err != nil {
-		return
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if r.Response.Response, err = future.GetResult(sender); err == nil && r.Response.Response.StatusCode != http.StatusNoContent {
+		r, err = client.CreateResponder(r.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.ReplicationsCreateFuture", "Result", r.Response.Response, "Failure responding to request")
+		}
 	}
-	r, err = client.CreateResponder(resp)
 	return
 }
 
 // ReplicationsDeleteFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type ReplicationsDeleteFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future ReplicationsDeleteFuture) Result(client ReplicationsClient) (ar autorest.Response, err error) {
+func (future *ReplicationsDeleteFuture) Result(client ReplicationsClient) (ar autorest.Response, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.ReplicationsDeleteFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return ar, autorest.NewError("containerregistry.ReplicationsDeleteFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		ar, err = client.DeleteResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.ReplicationsDeleteFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
-	if err != nil {
-		return
-	}
-	ar, err = client.DeleteResponder(resp)
+	ar.Response = future.Response()
 	return
 }
 
 // ReplicationsUpdateFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type ReplicationsUpdateFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future ReplicationsUpdateFuture) Result(client ReplicationsClient) (r Replication, err error) {
+func (future *ReplicationsUpdateFuture) Result(client ReplicationsClient) (r Replication, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.ReplicationsUpdateFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return r, autorest.NewError("containerregistry.ReplicationsUpdateFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		r, err = client.UpdateResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.ReplicationsUpdateFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
-	if err != nil {
-		return
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if r.Response.Response, err = future.GetResult(sender); err == nil && r.Response.Response.StatusCode != http.StatusNoContent {
+		r, err = client.UpdateResponder(r.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.ReplicationsUpdateFuture", "Result", r.Response.Response, "Failure responding to request")
+		}
 	}
-	r, err = client.UpdateResponder(resp)
 	return
 }
 
 // ReplicationUpdateParameters the parameters for updating a replication.
 type ReplicationUpdateParameters struct {
 	// Tags - The tags for the replication.
-	Tags *map[string]*string `json:"tags,omitempty"`
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for ReplicationUpdateParameters.
+func (rup ReplicationUpdateParameters) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if rup.Tags != nil {
+		objectMap["tags"] = rup.Tags
+	}
+	return json.Marshal(objectMap)
 }
 
 // Request the request that generated the event.
@@ -1171,7 +1584,28 @@ type Resource struct {
 	// Location - The location of the resource. This cannot be changed after the resource is created.
 	Location *string `json:"location,omitempty"`
 	// Tags - The tags of the resource.
-	Tags *map[string]*string `json:"tags,omitempty"`
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for Resource.
+func (r Resource) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if r.ID != nil {
+		objectMap["id"] = r.ID
+	}
+	if r.Name != nil {
+		objectMap["name"] = r.Name
+	}
+	if r.Type != nil {
+		objectMap["type"] = r.Type
+	}
+	if r.Location != nil {
+		objectMap["location"] = r.Location
+	}
+	if r.Tags != nil {
+		objectMap["tags"] = r.Tags
+	}
+	return json.Marshal(objectMap)
 }
 
 // Sku the SKU of a container registry.
@@ -1182,8 +1616,8 @@ type Sku struct {
 	Tier SkuTier `json:"tier,omitempty"`
 }
 
-// Source the registry node that generated the event. Put differently, while the actor initiates the event, the source
-// generates it.
+// Source the registry node that generated the event. Put differently, while the actor initiates the event, the
+// source generates it.
 type Source struct {
 	// Addr - The IP or hostname and the port of the registry node that generated the event. Generally, this will be resolved by os.Hostname() along with the running port.
 	Addr *string `json:"addr,omitempty"`
@@ -1201,8 +1635,8 @@ type Status struct {
 	Timestamp *date.Time `json:"timestamp,omitempty"`
 }
 
-// StorageAccountProperties the properties of a storage account for a container registry. Only applicable to Classic
-// SKU.
+// StorageAccountProperties the properties of a storage account for a container registry. Only applicable to
+// Classic SKU.
 type StorageAccountProperties struct {
 	// ID - The resource ID of the storage account.
 	ID *string `json:"id,omitempty"`
@@ -1226,9 +1660,19 @@ type Target struct {
 	Tag *string `json:"tag,omitempty"`
 }
 
+// TrustPolicy an object that represents content trust policy for a container registry.
+type TrustPolicy struct {
+	// Type - The type of trust policy. Possible values include: 'Notary'
+	Type TrustPolicyType `json:"type,omitempty"`
+	// Status - The value that indicates whether the policy is enabled or not. Possible values include: 'Enabled', 'Disabled'
+	Status PolicyStatus `json:"status,omitempty"`
+}
+
 // Webhook an object that represents a webhook for a container registry.
 type Webhook struct {
 	autorest.Response `json:"-"`
+	// WebhookProperties - The properties of the webhook.
+	*WebhookProperties `json:"properties,omitempty"`
 	// ID - The resource ID.
 	ID *string `json:"id,omitempty"`
 	// Name - The name of the resource.
@@ -1238,9 +1682,31 @@ type Webhook struct {
 	// Location - The location of the resource. This cannot be changed after the resource is created.
 	Location *string `json:"location,omitempty"`
 	// Tags - The tags of the resource.
-	Tags *map[string]*string `json:"tags,omitempty"`
-	// WebhookProperties - The properties of the webhook.
-	*WebhookProperties `json:"properties,omitempty"`
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for Webhook.
+func (w Webhook) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if w.WebhookProperties != nil {
+		objectMap["properties"] = w.WebhookProperties
+	}
+	if w.ID != nil {
+		objectMap["id"] = w.ID
+	}
+	if w.Name != nil {
+		objectMap["name"] = w.Name
+	}
+	if w.Type != nil {
+		objectMap["type"] = w.Type
+	}
+	if w.Location != nil {
+		objectMap["location"] = w.Location
+	}
+	if w.Tags != nil {
+		objectMap["tags"] = w.Tags
+	}
+	return json.Marshal(objectMap)
 }
 
 // UnmarshalJSON is the custom unmarshaler for Webhook struct.
@@ -1250,66 +1716,63 @@ func (w *Webhook) UnmarshalJSON(body []byte) error {
 	if err != nil {
 		return err
 	}
-	var v *json.RawMessage
-
-	v = m["properties"]
-	if v != nil {
-		var properties WebhookProperties
-		err = json.Unmarshal(*m["properties"], &properties)
-		if err != nil {
-			return err
+	for k, v := range m {
+		switch k {
+		case "properties":
+			if v != nil {
+				var webhookProperties WebhookProperties
+				err = json.Unmarshal(*v, &webhookProperties)
+				if err != nil {
+					return err
+				}
+				w.WebhookProperties = &webhookProperties
+			}
+		case "id":
+			if v != nil {
+				var ID string
+				err = json.Unmarshal(*v, &ID)
+				if err != nil {
+					return err
+				}
+				w.ID = &ID
+			}
+		case "name":
+			if v != nil {
+				var name string
+				err = json.Unmarshal(*v, &name)
+				if err != nil {
+					return err
+				}
+				w.Name = &name
+			}
+		case "type":
+			if v != nil {
+				var typeVar string
+				err = json.Unmarshal(*v, &typeVar)
+				if err != nil {
+					return err
+				}
+				w.Type = &typeVar
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				w.Location = &location
+			}
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				w.Tags = tags
+			}
 		}
-		w.WebhookProperties = &properties
-	}
-
-	v = m["id"]
-	if v != nil {
-		var ID string
-		err = json.Unmarshal(*m["id"], &ID)
-		if err != nil {
-			return err
-		}
-		w.ID = &ID
-	}
-
-	v = m["name"]
-	if v != nil {
-		var name string
-		err = json.Unmarshal(*m["name"], &name)
-		if err != nil {
-			return err
-		}
-		w.Name = &name
-	}
-
-	v = m["type"]
-	if v != nil {
-		var typeVar string
-		err = json.Unmarshal(*m["type"], &typeVar)
-		if err != nil {
-			return err
-		}
-		w.Type = &typeVar
-	}
-
-	v = m["location"]
-	if v != nil {
-		var location string
-		err = json.Unmarshal(*m["location"], &location)
-		if err != nil {
-			return err
-		}
-		w.Location = &location
-	}
-
-	v = m["tags"]
-	if v != nil {
-		var tags map[string]*string
-		err = json.Unmarshal(*m["tags"], &tags)
-		if err != nil {
-			return err
-		}
-		w.Tags = &tags
 	}
 
 	return nil
@@ -1318,11 +1781,26 @@ func (w *Webhook) UnmarshalJSON(body []byte) error {
 // WebhookCreateParameters the parameters for creating a webhook.
 type WebhookCreateParameters struct {
 	// Tags - The tags for the webhook.
-	Tags *map[string]*string `json:"tags,omitempty"`
+	Tags map[string]*string `json:"tags"`
 	// Location - The location of the webhook. This cannot be changed after the resource is created.
 	Location *string `json:"location,omitempty"`
 	// WebhookPropertiesCreateParameters - The properties that the webhook will be created with.
 	*WebhookPropertiesCreateParameters `json:"properties,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for WebhookCreateParameters.
+func (wcp WebhookCreateParameters) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if wcp.Tags != nil {
+		objectMap["tags"] = wcp.Tags
+	}
+	if wcp.Location != nil {
+		objectMap["location"] = wcp.Location
+	}
+	if wcp.WebhookPropertiesCreateParameters != nil {
+		objectMap["properties"] = wcp.WebhookPropertiesCreateParameters
+	}
+	return json.Marshal(objectMap)
 }
 
 // UnmarshalJSON is the custom unmarshaler for WebhookCreateParameters struct.
@@ -1332,36 +1810,36 @@ func (wcp *WebhookCreateParameters) UnmarshalJSON(body []byte) error {
 	if err != nil {
 		return err
 	}
-	var v *json.RawMessage
-
-	v = m["tags"]
-	if v != nil {
-		var tags map[string]*string
-		err = json.Unmarshal(*m["tags"], &tags)
-		if err != nil {
-			return err
+	for k, v := range m {
+		switch k {
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				wcp.Tags = tags
+			}
+		case "location":
+			if v != nil {
+				var location string
+				err = json.Unmarshal(*v, &location)
+				if err != nil {
+					return err
+				}
+				wcp.Location = &location
+			}
+		case "properties":
+			if v != nil {
+				var webhookPropertiesCreateParameters WebhookPropertiesCreateParameters
+				err = json.Unmarshal(*v, &webhookPropertiesCreateParameters)
+				if err != nil {
+					return err
+				}
+				wcp.WebhookPropertiesCreateParameters = &webhookPropertiesCreateParameters
+			}
 		}
-		wcp.Tags = &tags
-	}
-
-	v = m["location"]
-	if v != nil {
-		var location string
-		err = json.Unmarshal(*m["location"], &location)
-		if err != nil {
-			return err
-		}
-		wcp.Location = &location
-	}
-
-	v = m["properties"]
-	if v != nil {
-		var properties WebhookPropertiesCreateParameters
-		err = json.Unmarshal(*m["properties"], &properties)
-		if err != nil {
-			return err
-		}
-		wcp.WebhookPropertiesCreateParameters = &properties
 	}
 
 	return nil
@@ -1471,7 +1949,7 @@ func (page WebhookListResultPage) Values() []Webhook {
 
 // WebhookProperties the properties of a webhook.
 type WebhookProperties struct {
-	// Status - The status of the webhook at the time the operation was called. Possible values include: 'Enabled', 'Disabled'
+	// Status - The status of the webhook at the time the operation was called. Possible values include: 'WebhookStatusEnabled', 'WebhookStatusDisabled'
 	Status WebhookStatus `json:"status,omitempty"`
 	// Scope - The scope of repositories where the event can be triggered. For example, 'foo:*' means events for all tags under repository 'foo'. 'foo:bar' means events for 'foo:bar' only. 'foo' is equivalent to 'foo:latest'. Empty means all events.
 	Scope *string `json:"scope,omitempty"`
@@ -1486,13 +1964,34 @@ type WebhookPropertiesCreateParameters struct {
 	// ServiceURI - The service URI for the webhook to post notifications.
 	ServiceURI *string `json:"serviceUri,omitempty"`
 	// CustomHeaders - Custom headers that will be added to the webhook notifications.
-	CustomHeaders *map[string]*string `json:"customHeaders,omitempty"`
-	// Status - The status of the webhook at the time the operation was called. Possible values include: 'Enabled', 'Disabled'
+	CustomHeaders map[string]*string `json:"customHeaders"`
+	// Status - The status of the webhook at the time the operation was called. Possible values include: 'WebhookStatusEnabled', 'WebhookStatusDisabled'
 	Status WebhookStatus `json:"status,omitempty"`
 	// Scope - The scope of repositories where the event can be triggered. For example, 'foo:*' means events for all tags under repository 'foo'. 'foo:bar' means events for 'foo:bar' only. 'foo' is equivalent to 'foo:latest'. Empty means all events.
 	Scope *string `json:"scope,omitempty"`
 	// Actions - The list of actions that trigger the webhook to post notifications.
 	Actions *[]WebhookAction `json:"actions,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for WebhookPropertiesCreateParameters.
+func (wpcp WebhookPropertiesCreateParameters) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if wpcp.ServiceURI != nil {
+		objectMap["serviceUri"] = wpcp.ServiceURI
+	}
+	if wpcp.CustomHeaders != nil {
+		objectMap["customHeaders"] = wpcp.CustomHeaders
+	}
+	if wpcp.Status != "" {
+		objectMap["status"] = wpcp.Status
+	}
+	if wpcp.Scope != nil {
+		objectMap["scope"] = wpcp.Scope
+	}
+	if wpcp.Actions != nil {
+		objectMap["actions"] = wpcp.Actions
+	}
+	return json.Marshal(objectMap)
 }
 
 // WebhookPropertiesUpdateParameters the parameters for updating the properties of a webhook.
@@ -1500,8 +1999,8 @@ type WebhookPropertiesUpdateParameters struct {
 	// ServiceURI - The service URI for the webhook to post notifications.
 	ServiceURI *string `json:"serviceUri,omitempty"`
 	// CustomHeaders - Custom headers that will be added to the webhook notifications.
-	CustomHeaders *map[string]*string `json:"customHeaders,omitempty"`
-	// Status - The status of the webhook at the time the operation was called. Possible values include: 'Enabled', 'Disabled'
+	CustomHeaders map[string]*string `json:"customHeaders"`
+	// Status - The status of the webhook at the time the operation was called. Possible values include: 'WebhookStatusEnabled', 'WebhookStatusDisabled'
 	Status WebhookStatus `json:"status,omitempty"`
 	// Scope - The scope of repositories where the event can be triggered. For example, 'foo:*' means events for all tags under repository 'foo'. 'foo:bar' means events for 'foo:bar' only. 'foo' is equivalent to 'foo:latest'. Empty means all events.
 	Scope *string `json:"scope,omitempty"`
@@ -1509,105 +2008,123 @@ type WebhookPropertiesUpdateParameters struct {
 	Actions *[]WebhookAction `json:"actions,omitempty"`
 }
 
+// MarshalJSON is the custom marshaler for WebhookPropertiesUpdateParameters.
+func (wpup WebhookPropertiesUpdateParameters) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if wpup.ServiceURI != nil {
+		objectMap["serviceUri"] = wpup.ServiceURI
+	}
+	if wpup.CustomHeaders != nil {
+		objectMap["customHeaders"] = wpup.CustomHeaders
+	}
+	if wpup.Status != "" {
+		objectMap["status"] = wpup.Status
+	}
+	if wpup.Scope != nil {
+		objectMap["scope"] = wpup.Scope
+	}
+	if wpup.Actions != nil {
+		objectMap["actions"] = wpup.Actions
+	}
+	return json.Marshal(objectMap)
+}
+
 // WebhooksCreateFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type WebhooksCreateFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future WebhooksCreateFuture) Result(client WebhooksClient) (w Webhook, err error) {
+func (future *WebhooksCreateFuture) Result(client WebhooksClient) (w Webhook, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.WebhooksCreateFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return w, autorest.NewError("containerregistry.WebhooksCreateFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		w, err = client.CreateResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.WebhooksCreateFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
-	if err != nil {
-		return
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if w.Response.Response, err = future.GetResult(sender); err == nil && w.Response.Response.StatusCode != http.StatusNoContent {
+		w, err = client.CreateResponder(w.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.WebhooksCreateFuture", "Result", w.Response.Response, "Failure responding to request")
+		}
 	}
-	w, err = client.CreateResponder(resp)
 	return
 }
 
 // WebhooksDeleteFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type WebhooksDeleteFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future WebhooksDeleteFuture) Result(client WebhooksClient) (ar autorest.Response, err error) {
+func (future *WebhooksDeleteFuture) Result(client WebhooksClient) (ar autorest.Response, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.WebhooksDeleteFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return ar, autorest.NewError("containerregistry.WebhooksDeleteFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		ar, err = client.DeleteResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.WebhooksDeleteFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
-	if err != nil {
-		return
-	}
-	ar, err = client.DeleteResponder(resp)
+	ar.Response = future.Response()
 	return
 }
 
 // WebhooksUpdateFuture an abstraction for monitoring and retrieving the results of a long-running operation.
 type WebhooksUpdateFuture struct {
 	azure.Future
-	req *http.Request
 }
 
 // Result returns the result of the asynchronous operation.
 // If the operation has not completed it will return an error.
-func (future WebhooksUpdateFuture) Result(client WebhooksClient) (w Webhook, err error) {
+func (future *WebhooksUpdateFuture) Result(client WebhooksClient) (w Webhook, err error) {
 	var done bool
 	done, err = future.Done(client)
 	if err != nil {
+		err = autorest.NewErrorWithError(err, "containerregistry.WebhooksUpdateFuture", "Result", future.Response(), "Polling failure")
 		return
 	}
 	if !done {
-		return w, autorest.NewError("containerregistry.WebhooksUpdateFuture", "Result", "asynchronous operation has not completed")
-	}
-	if future.PollingMethod() == azure.PollingLocation {
-		w, err = client.UpdateResponder(future.Response())
+		err = azure.NewAsyncOpIncompleteError("containerregistry.WebhooksUpdateFuture")
 		return
 	}
-	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, autorest.ChangeToGet(future.req),
-		autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
-	if err != nil {
-		return
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if w.Response.Response, err = future.GetResult(sender); err == nil && w.Response.Response.StatusCode != http.StatusNoContent {
+		w, err = client.UpdateResponder(w.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "containerregistry.WebhooksUpdateFuture", "Result", w.Response.Response, "Failure responding to request")
+		}
 	}
-	w, err = client.UpdateResponder(resp)
 	return
 }
 
 // WebhookUpdateParameters the parameters for updating a webhook.
 type WebhookUpdateParameters struct {
 	// Tags - The tags for the webhook.
-	Tags *map[string]*string `json:"tags,omitempty"`
+	Tags map[string]*string `json:"tags"`
 	// WebhookPropertiesUpdateParameters - The properties that the webhook will be updated with.
 	*WebhookPropertiesUpdateParameters `json:"properties,omitempty"`
+}
+
+// MarshalJSON is the custom marshaler for WebhookUpdateParameters.
+func (wup WebhookUpdateParameters) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if wup.Tags != nil {
+		objectMap["tags"] = wup.Tags
+	}
+	if wup.WebhookPropertiesUpdateParameters != nil {
+		objectMap["properties"] = wup.WebhookPropertiesUpdateParameters
+	}
+	return json.Marshal(objectMap)
 }
 
 // UnmarshalJSON is the custom unmarshaler for WebhookUpdateParameters struct.
@@ -1617,26 +2134,27 @@ func (wup *WebhookUpdateParameters) UnmarshalJSON(body []byte) error {
 	if err != nil {
 		return err
 	}
-	var v *json.RawMessage
-
-	v = m["tags"]
-	if v != nil {
-		var tags map[string]*string
-		err = json.Unmarshal(*m["tags"], &tags)
-		if err != nil {
-			return err
+	for k, v := range m {
+		switch k {
+		case "tags":
+			if v != nil {
+				var tags map[string]*string
+				err = json.Unmarshal(*v, &tags)
+				if err != nil {
+					return err
+				}
+				wup.Tags = tags
+			}
+		case "properties":
+			if v != nil {
+				var webhookPropertiesUpdateParameters WebhookPropertiesUpdateParameters
+				err = json.Unmarshal(*v, &webhookPropertiesUpdateParameters)
+				if err != nil {
+					return err
+				}
+				wup.WebhookPropertiesUpdateParameters = &webhookPropertiesUpdateParameters
+			}
 		}
-		wup.Tags = &tags
-	}
-
-	v = m["properties"]
-	if v != nil {
-		var properties WebhookPropertiesUpdateParameters
-		err = json.Unmarshal(*m["properties"], &properties)
-		if err != nil {
-			return err
-		}
-		wup.WebhookPropertiesUpdateParameters = &properties
 	}
 
 	return nil

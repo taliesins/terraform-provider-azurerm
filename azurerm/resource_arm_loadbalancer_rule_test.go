@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
@@ -62,7 +62,7 @@ func TestResourceAzureRMLoadBalancerRuleNameLabel_validation(t *testing.T) {
 		_, errors := validateArmLoadBalancerRuleName(tc.Value, "azurerm_lb_rule")
 
 		if len(errors) != tc.ErrCount {
-			t.Fatalf("Expected the Azure RM LoadBalancer Rule Name Label to trigger a validation error")
+			t.Fatalf("Expected the Azure RM Load Balancer Rule Name Label to trigger a validation error")
 		}
 	}
 }
@@ -74,10 +74,10 @@ func TestAccAzureRMLoadBalancerRule_basic(t *testing.T) {
 
 	subscriptionID := os.Getenv("ARM_SUBSCRIPTION_ID")
 	lbRule_id := fmt.Sprintf(
-		"/subscriptions/%s/resourceGroups/acctestrg-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/loadBalancingRules/%s",
+		"/subscriptions/%s/resourceGroups/acctestRG-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/loadBalancingRules/%s",
 		subscriptionID, ri, ri, lbRuleName)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -91,6 +91,13 @@ func TestAccAzureRMLoadBalancerRule_basic(t *testing.T) {
 						"azurerm_lb_rule.test", "id", lbRule_id),
 				),
 			},
+			{
+				ResourceName:      "azurerm_lb.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				// location is deprecated and was never actually used
+				ImportStateVerifyIgnore: []string{"location"},
+			},
 		},
 	})
 }
@@ -100,7 +107,7 @@ func TestAccAzureRMLoadBalancerRule_removal(t *testing.T) {
 	ri := acctest.RandInt()
 	lbRuleName := fmt.Sprintf("LbRule-%s", acctest.RandStringFromCharSet(8, acctest.CharSetAlpha))
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -131,7 +138,7 @@ func TestAccAzureRMLoadBalancerRule_inconsistentReads(t *testing.T) {
 	lbRuleName := fmt.Sprintf("LbRule-%s", acctest.RandStringFromCharSet(8, acctest.CharSetAlpha))
 	probeName := fmt.Sprintf("LbProbe-%s", acctest.RandStringFromCharSet(8, acctest.CharSetAlpha))
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -157,14 +164,14 @@ func TestAccAzureRMLoadBalancerRule_update(t *testing.T) {
 
 	subscriptionID := os.Getenv("ARM_SUBSCRIPTION_ID")
 	lbRuleID := fmt.Sprintf(
-		"/subscriptions/%s/resourceGroups/acctestrg-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/loadBalancingRules/%s",
+		"/subscriptions/%s/resourceGroups/acctestRG-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/loadBalancingRules/%s",
 		subscriptionID, ri, ri, lbRuleName)
 
 	lbRule2ID := fmt.Sprintf(
-		"/subscriptions/%s/resourceGroups/acctestrg-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/loadBalancingRules/%s",
+		"/subscriptions/%s/resourceGroups/acctestRG-%d/providers/Microsoft.Network/loadBalancers/arm-test-loadbalancer-%d/loadBalancingRules/%s",
 		subscriptionID, ri, ri, lbRule2Name)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -206,7 +213,7 @@ func TestAccAzureRMLoadBalancerRule_reapply(t *testing.T) {
 		return s.Remove("azurerm_lb_rule.test")
 	}
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -236,7 +243,7 @@ func TestAccAzureRMLoadBalancerRule_disappears(t *testing.T) {
 	ri := acctest.RandInt()
 	lbRuleName := fmt.Sprintf("LbRule-%s", acctest.RandStringFromCharSet(8, acctest.CharSetAlpha))
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLoadBalancerDestroy,
@@ -258,7 +265,7 @@ func testCheckAzureRMLoadBalancerRuleExists(lbRuleName string, lb *network.LoadB
 	return func(s *terraform.State) error {
 		_, _, exists := findLoadBalancerRuleByName(lb, lbRuleName)
 		if !exists {
-			return fmt.Errorf("A LoadBalancer Rule with name %q cannot be found.", lbRuleName)
+			return fmt.Errorf("A Load Balancer Rule with name %q cannot be found.", lbRuleName)
 		}
 
 		return nil
@@ -269,7 +276,7 @@ func testCheckAzureRMLoadBalancerRuleNotExists(lbRuleName string, lb *network.Lo
 	return func(s *terraform.State) error {
 		_, _, exists := findLoadBalancerRuleByName(lb, lbRuleName)
 		if exists {
-			return fmt.Errorf("A LoadBalancer Rule with name %q has been found.", lbRuleName)
+			return fmt.Errorf("A Load Balancer Rule with name %q has been found.", lbRuleName)
 		}
 
 		return nil
@@ -297,12 +304,11 @@ func testCheckAzureRMLoadBalancerRuleDisappears(ruleName string, lb *network.Loa
 
 		future, err := client.CreateOrUpdate(ctx, id.ResourceGroup, *lb.Name, *lb)
 		if err != nil {
-			return fmt.Errorf("Error Creating/Updating LoadBalancer %q (Resource Group %q): %+v", lb.Name, id.ResourceGroup, err)
+			return fmt.Errorf("Error Creating/Updating Load Balancer %q (Resource Group %q): %+v", *lb.Name, id.ResourceGroup, err)
 		}
 
-		err = future.WaitForCompletion(ctx, client.Client)
-		if err != nil {
-			return fmt.Errorf("Error waiting for completion of LoadBalancer %q (Resource Group %q): %+v", lb.Name, id.ResourceGroup, err)
+		if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
+			return fmt.Errorf("Error waiting for completion of Load Balancer %q (Resource Group %q): %+v", *lb.Name, id.ResourceGroup, err)
 		}
 
 		_, err = client.Get(ctx, id.ResourceGroup, *lb.Name, "")
@@ -313,7 +319,7 @@ func testCheckAzureRMLoadBalancerRuleDisappears(ruleName string, lb *network.Loa
 func testAccAzureRMLoadBalancerRule_basic(rInt int, lbRuleName string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -351,7 +357,7 @@ resource "azurerm_lb_rule" "test" {
 func testAccAzureRMLoadBalancerRule_removal(rInt int, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -372,7 +378,6 @@ resource "azurerm_lb" "test" {
     public_ip_address_id = "${azurerm_public_ip.test.id}"
   }
 }
-
 `, rInt, location, rInt, rInt, rInt)
 }
 
@@ -380,7 +385,7 @@ resource "azurerm_lb" "test" {
 func testAccAzureRMLoadBalancerRule_inconsistentRead(rInt int, backendPoolName, probeName, lbRuleName string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -428,14 +433,13 @@ resource "azurerm_lb_rule" "test" {
   backend_port                   = 3389
   frontend_ip_configuration_name = "one-%d"
 }
-
 `, rInt, location, rInt, rInt, rInt, backendPoolName, probeName, lbRuleName, rInt)
 }
 
 func testAccAzureRMLoadBalancerRule_multipleRules(rInt int, lbRuleName, lbRule2Name string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -478,14 +482,13 @@ resource "azurerm_lb_rule" "test2" {
   backend_port                   = 3390
   frontend_ip_configuration_name = "one-%d"
 }
-
 `, rInt, location, rInt, rInt, rInt, lbRuleName, rInt, lbRule2Name, rInt)
 }
 
 func testAccAzureRMLoadBalancerRule_multipleRulesUpdate(rInt int, lbRuleName, lbRule2Name string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestrg-%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 

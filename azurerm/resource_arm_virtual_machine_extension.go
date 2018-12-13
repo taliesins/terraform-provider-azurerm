@@ -3,7 +3,7 @@ package azurerm
 import (
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/structure"
 	"github.com/hashicorp/terraform/helper/validation"
@@ -83,7 +83,7 @@ func resourceArmVirtualMachineExtensionsCreate(d *schema.ResourceData, meta inte
 	ctx := meta.(*ArmClient).StopContext
 
 	name := d.Get("name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	vmName := d.Get("virtual_machine_name").(string)
 	resGroup := d.Get("resource_group_name").(string)
 	publisher := d.Get("publisher").(string)
@@ -124,8 +124,7 @@ func resourceArmVirtualMachineExtensionsCreate(d *schema.ResourceData, meta inte
 		return err
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -166,20 +165,26 @@ func resourceArmVirtualMachineExtensionsRead(d *schema.ResourceData, meta interf
 	}
 
 	d.Set("name", resp.Name)
-	d.Set("location", azureRMNormalizeLocation(*resp.Location))
+	if location := resp.Location; location != nil {
+		d.Set("location", azureRMNormalizeLocation(*location))
+	}
 	d.Set("virtual_machine_name", vmName)
 	d.Set("resource_group_name", resGroup)
-	d.Set("publisher", resp.VirtualMachineExtensionProperties.Publisher)
-	d.Set("type", resp.VirtualMachineExtensionProperties.Type)
-	d.Set("type_handler_version", resp.VirtualMachineExtensionProperties.TypeHandlerVersion)
-	d.Set("auto_upgrade_minor_version", resp.VirtualMachineExtensionProperties.AutoUpgradeMinorVersion)
 
-	if resp.VirtualMachineExtensionProperties.Settings != nil {
-		settings, err := structure.FlattenJsonToString(*resp.VirtualMachineExtensionProperties.Settings)
-		if err != nil {
-			return fmt.Errorf("unable to parse settings from response: %s", err)
+	if props := resp.VirtualMachineExtensionProperties; props != nil {
+		d.Set("publisher", props.Publisher)
+		d.Set("type", props.Type)
+		d.Set("type_handler_version", props.TypeHandlerVersion)
+		d.Set("auto_upgrade_minor_version", props.AutoUpgradeMinorVersion)
+
+		if settings := props.Settings; settings != nil {
+			settingsVal := settings.(map[string]interface{})
+			settingsJson, err := structure.FlattenJsonToString(settingsVal)
+			if err != nil {
+				return fmt.Errorf("unable to parse settings from response: %s", err)
+			}
+			d.Set("settings", settingsJson)
 		}
-		d.Set("settings", settings)
 	}
 
 	flattenAndSetTags(d, resp.Tags)
@@ -204,10 +209,5 @@ func resourceArmVirtualMachineExtensionsDelete(d *schema.ResourceData, meta inte
 		return err
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return future.WaitForCompletionRef(ctx, client.Client)
 }

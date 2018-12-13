@@ -5,10 +5,11 @@ import (
 	"log"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2017-12-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/suppress"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -18,6 +19,7 @@ func resourceArmManagedDisk() *schema.Resource {
 		Read:   resourceArmManagedDiskRead,
 		Update: resourceArmManagedDiskCreate,
 		Delete: resourceArmManagedDiskDelete,
+
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
 		},
@@ -33,14 +35,18 @@ func resourceArmManagedDisk() *schema.Resource {
 
 			"resource_group_name": resourceGroupNameSchema(),
 
+			"zones": singleZonesSchema(),
+
 			"storage_account_type": {
 				Type:     schema.TypeString,
 				Required: true,
 				ValidateFunc: validation.StringInSlice([]string{
 					string(compute.StandardLRS),
 					string(compute.PremiumLRS),
+					string(compute.StandardSSDLRS),
+					string(compute.UltraSSDLRS),
 				}, true),
-				DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
+				DiffSuppressFunc: suppress.CaseDifference,
 			},
 
 			"create_option": {
@@ -97,13 +103,13 @@ func resourceArmManagedDisk() *schema.Resource {
 	}
 }
 
-func validateDiskSizeGB(v interface{}, k string) (ws []string, errors []error) {
+func validateDiskSizeGB(v interface{}, _ string) (warnings []string, errors []error) {
 	value := v.(int)
 	if value < 0 || value > 4095 {
 		errors = append(errors, fmt.Errorf(
 			"The `disk_size_gb` can only be between 0 and 4095"))
 	}
-	return
+	return warnings, errors
 }
 
 func resourceArmManagedDiskCreate(d *schema.ResourceData, meta interface{}) error {
@@ -113,18 +119,21 @@ func resourceArmManagedDiskCreate(d *schema.ResourceData, meta interface{}) erro
 	log.Printf("[INFO] preparing arguments for Azure ARM Managed Disk creation.")
 
 	name := d.Get("name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	resGroup := d.Get("resource_group_name").(string)
 	storageAccountType := d.Get("storage_account_type").(string)
 	osType := d.Get("os_type").(string)
 	tags := d.Get("tags").(map[string]interface{})
 	expandedTags := expandTags(tags)
+	zones := expandZones(d.Get("zones").([]interface{}))
 
-	var skuName compute.StorageAccountTypes
-	if strings.ToLower(storageAccountType) == strings.ToLower(string(compute.PremiumLRS)) {
+	var skuName compute.DiskStorageAccountTypes
+	if strings.EqualFold(storageAccountType, string(compute.PremiumLRS)) {
 		skuName = compute.PremiumLRS
-	} else {
+	} else if strings.EqualFold(storageAccountType, string(compute.StandardLRS)) {
 		skuName = compute.StandardLRS
+	} else if strings.EqualFold(storageAccountType, string(compute.StandardSSDLRS)) {
+		skuName = compute.StandardSSDLRS
 	}
 
 	createDisk := compute.Disk{
@@ -134,9 +143,10 @@ func resourceArmManagedDiskCreate(d *schema.ResourceData, meta interface{}) erro
 			OsType: compute.OperatingSystemTypes(osType),
 		},
 		Sku: &compute.DiskSku{
-			Name: (skuName),
+			Name: skuName,
 		},
-		Tags: expandedTags,
+		Tags:  expandedTags,
+		Zones: zones,
 	}
 
 	if v := d.Get("disk_size_gb"); v != 0 {
@@ -182,8 +192,7 @@ func resourceArmManagedDiskCreate(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -222,6 +231,7 @@ func resourceArmManagedDiskRead(d *schema.ResourceData, meta interface{}) error 
 
 	d.Set("name", resp.Name)
 	d.Set("resource_group_name", resGroup)
+	d.Set("zones", resp.Zones)
 
 	if location := resp.Location; location != nil {
 		d.Set("location", azureRMNormalizeLocation(*location))
@@ -247,7 +257,7 @@ func resourceArmManagedDiskRead(d *schema.ResourceData, meta interface{}) error 
 	if settings := resp.EncryptionSettings; settings != nil {
 		flattened := flattenManagedDiskEncryptionSettings(settings)
 		if err := d.Set("encryption_settings", flattened); err != nil {
-			return fmt.Errorf("Error flattening encryption settings: %+v", err)
+			return fmt.Errorf("Error setting encryption settings: %+v", err)
 		}
 	}
 
@@ -274,8 +284,7 @@ func resourceArmManagedDiskDelete(d *schema.ResourceData, meta interface{}) erro
 		}
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		if !response.WasNotFound(future.Response()) {
 			return err
 		}

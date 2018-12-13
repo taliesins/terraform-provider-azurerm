@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/suppress"
+
 	"github.com/Azure/azure-sdk-for-go/services/appinsights/mgmt/2015-05-01/insights"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
@@ -13,9 +15,9 @@ import (
 
 func resourceArmApplicationInsights() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmApplicationInsightsCreateOrUpdate,
+		Create: resourceArmApplicationInsightsCreateUpdate,
 		Read:   resourceArmApplicationInsightsRead,
-		Update: resourceArmApplicationInsightsCreateOrUpdate,
+		Update: resourceArmApplicationInsightsCreateUpdate,
 		Delete: resourceArmApplicationInsightsDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -36,10 +38,16 @@ func resourceArmApplicationInsights() *schema.Resource {
 				Type:             schema.TypeString,
 				Required:         true,
 				ForceNew:         true,
-				DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
+				DiffSuppressFunc: suppress.CaseDifference,
 				ValidateFunc: validation.StringInSlice([]string{
-					string(insights.Web),
-					string(insights.Other),
+					"web",
+					"other",
+					"java",
+					"MobileCenter",
+					"phone",
+					"store",
+					"ios",
+					"Node.JS",
 				}, true),
 			},
 
@@ -51,14 +59,15 @@ func resourceArmApplicationInsights() *schema.Resource {
 			},
 
 			"instrumentation_key": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:      schema.TypeString,
+				Computed:  true,
+				Sensitive: true,
 			},
 		},
 	}
 }
 
-func resourceArmApplicationInsightsCreateOrUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceArmApplicationInsightsCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).appInsightsClient
 	ctx := meta.(*ArmClient).StopContext
 
@@ -67,7 +76,7 @@ func resourceArmApplicationInsightsCreateOrUpdate(d *schema.ResourceData, meta i
 	name := d.Get("name").(string)
 	resGroup := d.Get("resource_group_name").(string)
 	applicationType := d.Get("application_type").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	tags := d.Get("tags").(map[string]interface{})
 
 	applicationInsightsComponentProperties := insights.ApplicationInsightsComponentProperties{
@@ -76,21 +85,26 @@ func resourceArmApplicationInsightsCreateOrUpdate(d *schema.ResourceData, meta i
 	}
 
 	insightProperties := insights.ApplicationInsightsComponent{
-		Name:     &name,
-		Location: &location,
-		Kind:     &applicationType,
+		Name:                                   &name,
+		Location:                               &location,
+		Kind:                                   &applicationType,
 		ApplicationInsightsComponentProperties: &applicationInsightsComponentProperties,
-		Tags: expandTags(tags),
+		Tags:                                   expandTags(tags),
 	}
 
-	_, err := client.CreateOrUpdate(ctx, resGroup, name, insightProperties)
+	resp, err := client.CreateOrUpdate(ctx, resGroup, name, insightProperties)
 	if err != nil {
-		return err
+		// @tombuildsstuff - from 2018-08-14 the Create call started returning a 201 instead of 200
+		// which doesn't match the Swagger - this works around it until that's fixed
+		// BUG: https://github.com/Azure/azure-sdk-for-go/issues/2465
+		if resp.StatusCode != http.StatusCreated {
+			return fmt.Errorf("Error creating Application Insights %q (Resource Group %q): %+v", name, resGroup, err)
+		}
 	}
 
 	read, err := client.Get(ctx, resGroup, name)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error retrieving Application Insights %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 	if read.ID == nil {
 		return fmt.Errorf("Cannot read AzureRM Application Insights '%s' (Resource Group %s) ID", name, resGroup)
@@ -126,7 +140,9 @@ func resourceArmApplicationInsightsRead(d *schema.ResourceData, meta interface{}
 
 	d.Set("name", name)
 	d.Set("resource_group_name", resGroup)
-	d.Set("location", azureRMNormalizeLocation(*resp.Location))
+	if location := resp.Location; location != nil {
+		d.Set("location", azureRMNormalizeLocation(*location))
+	}
 
 	if props := resp.ApplicationInsightsComponentProperties; props != nil {
 		d.Set("application_type", string(props.ApplicationType))

@@ -7,6 +7,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -25,13 +27,14 @@ func resourceArmKeyVaultKey() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: validateKeyVaultChildName,
+				ValidateFunc: azure.ValidateKeyVaultChildName,
 			},
 
 			"vault_uri": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: validate.URLIsHTTPS,
 			},
 
 			"key_type": {
@@ -118,8 +121,7 @@ func resourceArmKeyVaultKeyCreate(d *schema.ResourceData, meta interface{}) erro
 		Tags:    expandTags(tags),
 	}
 
-	_, err := client.CreateKey(ctx, keyVaultBaseUrl, name, parameters)
-	if err != nil {
+	if _, err := client.CreateKey(ctx, keyVaultBaseUrl, name, parameters); err != nil {
 		return fmt.Errorf("Error Creating Key: %+v", err)
 	}
 
@@ -139,7 +141,7 @@ func resourceArmKeyVaultKeyUpdate(d *schema.ResourceData, meta interface{}) erro
 	ctx := meta.(*ArmClient).StopContext
 
 	log.Print("[INFO] preparing arguments for AzureRM KeyVault Key update.")
-	id, err := parseKeyVaultChildID(d.Id())
+	id, err := azure.ParseKeyVaultChildID(d.Id())
 	if err != nil {
 		return err
 	}
@@ -167,13 +169,19 @@ func resourceArmKeyVaultKeyRead(d *schema.ResourceData, meta interface{}) error 
 	client := meta.(*ArmClient).keyVaultManagementClient
 	ctx := meta.(*ArmClient).StopContext
 
-	id, err := parseKeyVaultChildID(d.Id())
+	id, err := azure.ParseKeyVaultChildID(d.Id())
 	if err != nil {
 		return err
 	}
 
 	resp, err := client.GetKey(ctx, id.KeyVaultBaseUrl, id.Name, "")
 	if err != nil {
+		if utils.ResponseWasNotFound(resp.Response) {
+			log.Printf("[DEBUG] Key %q was not found in Key Vault at URI %q - removing from state", id.Name, id.KeyVaultBaseUrl)
+			d.SetId("")
+			return nil
+		}
+
 		return err
 	}
 
@@ -203,13 +211,12 @@ func resourceArmKeyVaultKeyDelete(d *schema.ResourceData, meta interface{}) erro
 	client := meta.(*ArmClient).keyVaultManagementClient
 	ctx := meta.(*ArmClient).StopContext
 
-	id, err := parseKeyVaultChildID(d.Id())
+	id, err := azure.ParseKeyVaultChildID(d.Id())
 	if err != nil {
 		return err
 	}
 
 	_, err = client.DeleteKey(ctx, id.KeyVaultBaseUrl, id.Name)
-
 	return err
 }
 

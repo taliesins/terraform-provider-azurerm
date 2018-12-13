@@ -11,11 +11,40 @@ import (
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
-func TestAccAzureRMRoleAssignment_emptyName(t *testing.T) {
-	resourceName := "azurerm_role_assignment.test"
-	config := testAccAzureRMRoleAssignment_emptyName()
+func TestAccAzureRMRoleAssignment(t *testing.T) {
+	// NOTE: this is a combined test rather than separate split out tests due to
+	// Azure only being happy about provisioning a couple at a time
+	testCases := map[string]map[string]func(t *testing.T){
+		"basic": {
+			"emptyName":   testAccAzureRMRoleAssignment_emptyName,
+			"roleName":    testAccAzureRMRoleAssignment_roleName,
+			"dataActions": testAccAzureRMRoleAssignment_dataActions,
+			"builtin":     testAccAzureRMRoleAssignment_builtin,
+			"custom":      testAccAzureRMRoleAssignment_custom,
+		},
+		"assignment": {
+			"sp": testAccAzureRMActiveDirectoryServicePrincipal_roleAssignment,
+		},
+	}
 
-	resource.Test(t, resource.TestCase{
+	for group, m := range testCases {
+		m := m
+		t.Run(group, func(t *testing.T) {
+			for name, tc := range m {
+				tc := tc
+				t.Run(name, func(t *testing.T) {
+					tc(t)
+				})
+			}
+		})
+	}
+}
+
+func testAccAzureRMRoleAssignment_emptyName(t *testing.T) {
+	resourceName := "azurerm_role_assignment.test"
+	config := testAccAzureRMRoleAssignment_emptyNameConfig()
+
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMRoleAssignmentDestroy,
@@ -27,36 +56,21 @@ func TestAccAzureRMRoleAssignment_emptyName(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "name"),
 				),
 			},
-		},
-	})
-}
-
-func TestAccAzureRMRoleAssignment_builtin(t *testing.T) {
-	id := uuid.New().String()
-	config := testAccAzureRMRoleAssignment_builtin(id)
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMRoleAssignmentDestroy,
-		Steps: []resource.TestStep{
 			{
-				Config: config,
-				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMRoleAssignmentExists("azurerm_role_assignment.test"),
-				),
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
 }
 
-func TestAccAzureRMRoleAssignment_custom(t *testing.T) {
-	roleDefinitionId := uuid.New().String()
-	roleAssignmentId := uuid.New().String()
-	rInt := acctest.RandInt()
-	config := testAccAzureRMRoleAssignment_custom(roleDefinitionId, roleAssignmentId, rInt)
+func testAccAzureRMRoleAssignment_roleName(t *testing.T) {
+	resourceName := "azurerm_role_assignment.test"
+	id := uuid.New().String()
+	config := testAccAzureRMRoleAssignment_roleNameConfig(id)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMRoleAssignmentDestroy,
@@ -64,8 +78,92 @@ func TestAccAzureRMRoleAssignment_custom(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMRoleAssignmentExists("azurerm_role_assignment.test"),
+					testCheckAzureRMRoleAssignmentExists(resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "role_definition_id"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccAzureRMRoleAssignment_dataActions(t *testing.T) {
+	id := uuid.New().String()
+	resourceName := "azurerm_role_assignment.test"
+	config := testAccAzureRMRoleAssignment_dataActionsConfig(id)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMRoleAssignmentDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMRoleAssignmentExists(resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "role_definition_id"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccAzureRMRoleAssignment_builtin(t *testing.T) {
+	resourceName := "azurerm_role_assignment.test"
+	id := uuid.New().String()
+	config := testAccAzureRMRoleAssignment_builtinConfig(id)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMRoleAssignmentDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMRoleAssignmentExists(resourceName),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccAzureRMRoleAssignment_custom(t *testing.T) {
+	resourceName := "azurerm_role_assignment.test"
+	roleDefinitionId := uuid.New().String()
+	roleAssignmentId := uuid.New().String()
+	rInt := acctest.RandInt()
+	config := testAccAzureRMRoleAssignment_customConfig(roleDefinitionId, roleAssignmentId, rInt)
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMRoleAssignmentDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMRoleAssignmentExists(resourceName),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -123,14 +221,39 @@ func testCheckAzureRMRoleAssignmentDestroy(s *terraform.State) error {
 	return nil
 }
 
-func testAccAzureRMRoleAssignment_emptyName() string {
+func testAccAzureRMActiveDirectoryServicePrincipal_roleAssignment(t *testing.T) {
+	resourceName := "azurerm_azuread_service_principal.test"
+
+	ri := acctest.RandInt()
+	id := uuid.New().String()
+	config := testAccAzureRMActiveDirectoryServicePrincipal_roleAssignmentConfig(ri, id)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMActiveDirectoryServicePrincipalDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMActiveDirectoryServicePrincipalExists(resourceName),
+					testCheckAzureRMRoleAssignmentExists("azurerm_role_assignment.test"),
+					resource.TestCheckResourceAttrSet(resourceName, "display_name"),
+					resource.TestCheckResourceAttrSet(resourceName, "application_id"),
+				),
+			},
+		},
+	})
+}
+
+func testAccAzureRMRoleAssignment_emptyNameConfig() string {
 	return `
 data "azurerm_subscription" "primary" {}
 
 data "azurerm_client_config" "test" {}
 
 data "azurerm_builtin_role_definition" "test" {
-  name = "Reader"
+  name = "Monitoring Reader"
 }
 
 resource "azurerm_role_assignment" "test" {
@@ -141,14 +264,44 @@ resource "azurerm_role_assignment" "test" {
 `
 }
 
-func testAccAzureRMRoleAssignment_builtin(id string) string {
+func testAccAzureRMRoleAssignment_roleNameConfig(id string) string {
+	return fmt.Sprintf(`
+data "azurerm_subscription" "primary" {}
+
+data "azurerm_client_config" "test" {}
+
+resource "azurerm_role_assignment" "test" {
+  name                 = "%s"
+  scope                = "${data.azurerm_subscription.primary.id}"
+  role_definition_name = "Log Analytics Reader"
+  principal_id         = "${data.azurerm_client_config.test.service_principal_object_id}"
+}
+`, id)
+}
+
+func testAccAzureRMRoleAssignment_dataActionsConfig(id string) string {
+	return fmt.Sprintf(`
+data "azurerm_subscription" "primary" {}
+
+data "azurerm_client_config" "test" {}
+
+resource "azurerm_role_assignment" "test" {
+  name                 = "%s"
+  scope                = "${data.azurerm_subscription.primary.id}"
+  role_definition_name = "Virtual Machine User Login"
+  principal_id         = "${data.azurerm_client_config.test.service_principal_object_id}"
+}
+`, id)
+}
+
+func testAccAzureRMRoleAssignment_builtinConfig(id string) string {
 	return fmt.Sprintf(`
 data "azurerm_subscription" "primary" {}
 
 data "azurerm_client_config" "test" {}
 
 data "azurerm_builtin_role_definition" "test" {
-  name = "Reader"
+  name = "Site Recovery Reader"
 }
 
 resource "azurerm_role_assignment" "test" {
@@ -160,7 +313,7 @@ resource "azurerm_role_assignment" "test" {
 `, id)
 }
 
-func testAccAzureRMRoleAssignment_custom(roleDefinitionId string, roleAssignmentId string, rInt int) string {
+func testAccAzureRMRoleAssignment_customConfig(roleDefinitionId string, roleAssignmentId string, rInt int) string {
 	return fmt.Sprintf(`
 data "azurerm_subscription" "primary" {}
 
@@ -189,4 +342,25 @@ resource "azurerm_role_assignment" "test" {
   principal_id       = "${data.azurerm_client_config.test.service_principal_object_id}"
 }
 `, roleDefinitionId, rInt, roleAssignmentId)
+}
+
+func testAccAzureRMActiveDirectoryServicePrincipal_roleAssignmentConfig(rInt int, roleAssignmentID string) string {
+	return fmt.Sprintf(`
+data "azurerm_subscription" "current" {}
+
+resource "azurerm_azuread_application" "test" {
+  name     = "acctestspa-%d"
+}
+
+resource "azurerm_azuread_service_principal" "test" {
+  application_id = "${azurerm_azuread_application.test.application_id}"
+}
+
+resource "azurerm_role_assignment" "test" {
+  name                 = "%s"
+  scope                = "${data.azurerm_subscription.current.id}"
+  role_definition_name = "Reader"
+  principal_id         = "${azurerm_azuread_service_principal.test.id}"
+}
+`, rInt, roleAssignmentID)
 }

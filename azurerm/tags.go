@@ -1,8 +1,8 @@
 package azurerm
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -44,30 +44,30 @@ func tagValueToString(v interface{}) (string, error) {
 	}
 }
 
-func validateAzureRMTags(v interface{}, k string) (ws []string, es []error) {
+func validateAzureRMTags(v interface{}, _ string) (warnings []string, errors []error) {
 	tagsMap := v.(map[string]interface{})
 
 	if len(tagsMap) > 15 {
-		es = append(es, errors.New("a maximum of 15 tags can be applied to each ARM resource"))
+		errors = append(errors, fmt.Errorf("a maximum of 15 tags can be applied to each ARM resource"))
 	}
 
 	for k, v := range tagsMap {
 		if len(k) > 512 {
-			es = append(es, fmt.Errorf("the maximum length for a tag key is 512 characters: %q is %d characters", k, len(k)))
+			errors = append(errors, fmt.Errorf("the maximum length for a tag key is 512 characters: %q is %d characters", k, len(k)))
 		}
 
 		value, err := tagValueToString(v)
 		if err != nil {
-			es = append(es, err)
+			errors = append(errors, err)
 		} else if len(value) > 256 {
-			es = append(es, fmt.Errorf("the maximum length for a tag value is 256 characters: the value for %q is %d characters", k, len(value)))
+			errors = append(errors, fmt.Errorf("the maximum length for a tag value is 256 characters: the value for %q is %d characters", k, len(value)))
 		}
 	}
 
-	return
+	return warnings, errors
 }
 
-func expandTags(tagsMap map[string]interface{}) *map[string]*string {
+func expandTags(tagsMap map[string]interface{}) map[string]*string {
 	output := make(map[string]*string, len(tagsMap))
 
 	for i, v := range tagsMap {
@@ -76,18 +76,39 @@ func expandTags(tagsMap map[string]interface{}) *map[string]*string {
 		output[i] = &value
 	}
 
-	return &output
+	return output
 }
 
-func flattenAndSetTags(d *schema.ResourceData, tagsMap *map[string]*string) {
-	if tagsMap == nil {
-		d.Set("tags", make(map[string]interface{}))
-		return
+func filterTags(tagsMap map[string]*string, tagNames ...string) map[string]*string {
+	if len(tagNames) == 0 {
+		return tagsMap
 	}
 
-	output := make(map[string]interface{}, len(*tagsMap))
+	// Build the filter dictionary from passed tag names.
+	filterDict := make(map[string]bool)
+	for _, name := range tagNames {
+		if len(name) > 0 {
+			filterDict[strings.ToLower(name)] = true
+		}
+	}
 
-	for i, v := range *tagsMap {
+	// Filter out tag if it exists(case insensitive) in the dictionary.
+	tagsRet := make(map[string]*string)
+	for k, v := range tagsMap {
+		if !filterDict[strings.ToLower(k)] {
+			tagsRet[k] = v
+		}
+	}
+
+	return tagsRet
+}
+
+func flattenAndSetTags(d *schema.ResourceData, tagMap map[string]*string) {
+
+	// If tagsMap is nil, len(tagsMap) will be 0.
+	output := make(map[string]interface{}, len(tagMap))
+
+	for i, v := range tagMap {
 		output[i] = *v
 	}
 

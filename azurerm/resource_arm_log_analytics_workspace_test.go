@@ -52,10 +52,11 @@ func TestAccAzureRmLogAnalyticsWorkspaceName_validation(t *testing.T) {
 }
 
 func TestAccAzureRMLogAnalyticsWorkspace_requiredOnly(t *testing.T) {
+	resourceName := "azurerm_log_analytics_workspace.test"
 	ri := acctest.RandInt()
 	config := testAccAzureRMLogAnalyticsWorkspace_requiredOnly(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLogAnalyticsWorkspaceDestroy,
@@ -63,17 +64,24 @@ func TestAccAzureRMLogAnalyticsWorkspace_requiredOnly(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMLogAnalyticsWorkspaceExists("azurerm_log_analytics_workspace.test"),
+					testCheckAzureRMLogAnalyticsWorkspaceExists(resourceName),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
 }
+
 func TestAccAzureRMLogAnalyticsWorkspace_retentionInDaysComplete(t *testing.T) {
+	resourceName := "azurerm_log_analytics_workspace.test"
 	ri := acctest.RandInt()
 	config := testAccAzureRMLogAnalyticsWorkspace_retentionInDaysComplete(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMLogAnalyticsWorkspaceDestroy,
@@ -81,8 +89,13 @@ func TestAccAzureRMLogAnalyticsWorkspace_retentionInDaysComplete(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMLogAnalyticsWorkspaceExists("azurerm_log_analytics_workspace.test"),
+					testCheckAzureRMLogAnalyticsWorkspaceExists(resourceName),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -143,7 +156,6 @@ func testCheckAzureRMLogAnalyticsWorkspaceExists(name string) resource.TestCheck
 		return nil
 	}
 }
-
 func testAccAzureRMLogAnalyticsWorkspace_requiredOnly(rInt int, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
@@ -155,7 +167,7 @@ resource "azurerm_log_analytics_workspace" "test" {
   name                = "acctest-%d"
   location            = "${azurerm_resource_group.test.location}"
   resource_group_name = "${azurerm_resource_group.test.name}"
-  sku                 = "Free"
+  sku                 = "PerGB2018"
 }
 `, rInt, location, rInt)
 }
@@ -171,7 +183,7 @@ resource "azurerm_log_analytics_workspace" "test" {
   name                = "acctest-%d"
   location            = "${azurerm_resource_group.test.location}"
   resource_group_name = "${azurerm_resource_group.test.name}"
-  sku                 = "Standard"
+  sku                 = "PerGB2018"
   retention_in_days   = 30
 }
 `, rInt, location, rInt)

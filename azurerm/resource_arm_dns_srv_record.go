@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/dns/mgmt/2016-04-01/dns"
+	"github.com/Azure/azure-sdk-for-go/services/preview/dns/mgmt/2018-03-01-preview/dns"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
@@ -13,9 +13,9 @@ import (
 
 func resourceArmDnsSrvRecord() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmDnsSrvRecordCreateOrUpdate,
+		Create: resourceArmDnsSrvRecordCreateUpdate,
 		Read:   resourceArmDnsSrvRecordRead,
-		Update: resourceArmDnsSrvRecordCreateOrUpdate,
+		Update: resourceArmDnsSrvRecordCreateUpdate,
 		Delete: resourceArmDnsSrvRecordDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -74,7 +74,7 @@ func resourceArmDnsSrvRecord() *schema.Resource {
 	}
 }
 
-func resourceArmDnsSrvRecordCreateOrUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceArmDnsSrvRecordCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).dnsClient
 	ctx := meta.(*ArmClient).StopContext
 
@@ -162,9 +162,9 @@ func resourceArmDnsSrvRecordDelete(d *schema.ResourceData, meta interface{}) err
 	name := id.Path["SRV"]
 	zoneName := id.Path["dnszones"]
 
-	resp, error := client.Delete(ctx, resGroup, zoneName, name, dns.SRV, "")
+	resp, err := client.Delete(ctx, resGroup, zoneName, name, dns.SRV, "")
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Error deleting DNS SRV Record %s: %+v", name, error)
+		return fmt.Errorf("Error deleting DNS SRV Record %s: %+v", name, err)
 	}
 
 	return nil
@@ -213,12 +213,13 @@ func expandAzureRmDnsSrvRecords(d *schema.ResourceData) ([]dns.SrvRecord, error)
 
 func resourceArmDnsSrvRecordHash(v interface{}) int {
 	var buf bytes.Buffer
-	m := v.(map[string]interface{})
 
-	buf.WriteString(fmt.Sprintf("%d-", m["priority"].(int)))
-	buf.WriteString(fmt.Sprintf("%d-", m["weight"].(int)))
-	buf.WriteString(fmt.Sprintf("%d-", m["port"].(int)))
-	buf.WriteString(fmt.Sprintf("%s-", m["target"].(string)))
+	if m, ok := v.(map[string]interface{}); ok {
+		buf.WriteString(fmt.Sprintf("%d-", m["priority"].(int)))
+		buf.WriteString(fmt.Sprintf("%d-", m["weight"].(int)))
+		buf.WriteString(fmt.Sprintf("%d-", m["port"].(int)))
+		buf.WriteString(fmt.Sprintf("%s-", m["target"].(string)))
+	}
 
 	return hashcode.String(buf.String())
 }

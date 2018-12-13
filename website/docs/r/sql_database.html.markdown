@@ -3,10 +3,10 @@ layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_sql_database"
 sidebar_current: "docs-azurerm-resource-database-sql-database"
 description: |-
-  Create a SQL Database.
+  Manages a SQL Database.
 ---
 
-# azurerm\_sql\_database
+# azurerm_sql_database
 
 Allows you to manage an Azure SQL Database
 
@@ -19,19 +19,19 @@ resource "azurerm_resource_group" "test" {
 }
 
 resource "azurerm_sql_server" "test" {
-    name = "mysqlserver" 
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    location = "West US"
-    version = "12.0"
-    administrator_login = "4dm1n157r470r"
-    administrator_login_password = "4-v3ry-53cr37-p455w0rd"
+  name                         = "mysqlserver"
+  resource_group_name          = "${azurerm_resource_group.test.name}"
+  location                     = "West US"
+  version                      = "12.0"
+  administrator_login          = "4dm1n157r470r"
+  administrator_login_password = "4-v3ry-53cr37-p455w0rd"
 }
 
 resource "azurerm_sql_database" "test" {
   name                = "mysqldatabase"
   resource_group_name = "${azurerm_resource_group.test.name}"
-    location = "West US"
-    server_name = "${azurerm_sql_server.test.name}"
+  location            = "West US"
+  server_name         = "${azurerm_sql_server.test.name}"
 
   tags {
     environment = "production"
@@ -52,13 +52,15 @@ The following arguments are supported:
 
 * `create_mode` - (Optional) Specifies the type of database to create. Defaults to `Default`. See below for the accepted values/
 
+* `import` - (Optional) A Database Import block as documented below. `create_mode` must be set to `Default`.
+
 * `source_database_id` - (Optional) The URI of the source database if `create_mode` value is not `Default`.
 
 * `restore_point_in_time` - (Optional) The point in time for the restore. Only applies if `create_mode` is `PointInTimeRestore` e.g. 2013-11-08T22:00:40Z
 
 * `edition` - (Optional) The edition of the database to be created. Applies only if `create_mode` is `Default`. Valid values are: `Basic`, `Standard`, `Premium`, or `DataWarehouse`. Please see [Azure SQL Database Service Tiers](https://azure.microsoft.com/en-gb/documentation/articles/sql-database-service-tiers/).
 
-* `collation` - (Optional) The name of the collation. Applies only if `create_mode` is `Default`.  Azure default is `SQL_LATIN1_GENERAL_CP1_CI_AS`
+* `collation` - (Optional) The name of the collation. Applies only if `create_mode` is `Default`.  Azure default is `SQL_LATIN1_GENERAL_CP1_CI_AS`. Changing this forces a new resource to be created.
 
 * `max_size_bytes` - (Optional) The maximum size that the database can grow to. Applies only if `create_mode` is `Default`.  Please see [Azure SQL Database Service Tiers](https://azure.microsoft.com/en-gb/documentation/articles/sql-database-service-tiers/).
 
@@ -71,14 +73,39 @@ The following arguments are supported:
 
 * `elastic_pool_name` - (Optional) The name of the elastic database pool.
 
+* `threat_detection_policy` - (Optional) Threat detection policy configuration. The `threat_detection_policy` block supports fields documented below.
+
 * `tags` - (Optional) A mapping of tags to assign to the resource.
+
+`import` supports the following:
+
+* `storage_uri` - (Required) Specifies the blob URI of the .bacpac file.
+* `storage_key` - (Required) Specifies the access key for the storage account.
+* `storage_key_type` - (Required) Specifies the type of access key for the storage account. Valid values are `StorageAccessKey` or `SharedAccessKey`.
+* `administrator_login` - (Required) Specifies the name of the SQL administrator.
+* `administrator_login_password` - (Required) Specifies the password of the SQL administrator.
+* `authentication_type` - (Required) Specifies the type of authentication used to access the server. Valid values are `SQL` or `ADPassword`.
+* `operation_mode` - (Optional) Specifies the type of import operation being performed. The only allowable value is `Import`.
+
+---
+
+`threat_detection_policy` supports the following:
+
+* `state` - (Required) The State of the Policy. Possible values are `Enabled`, `Disabled` or `New`.
+* `disabled_alerts` - (Optional) Specifies a list of alerts which should be disabled. Possible values include `Access_Anomaly`, `Sql_Injection` and `Sql_Injection_Vulnerability`.
+* `email_account_admins` - (Optional) Should the account administrators be emailed when this alert is triggered?
+* `email_addresses` - (Optional) A list of email addresses which alerts should be sent to.
+* `retention_days` - (Optional) Specifies the number of days to keep in the Threat Detection audit logs.
+* `storage_account_access_key` - (Optional) Specifies the identifier key of the Threat Detection audit storage account. Required if `state` is `Enabled`.
+* `storage_endpoint` - (Optional) Specifies the blob storage endpoint (e.g. https://MyAccount.blob.core.windows.net). This blob storage will hold all Threat Detection audit logs. Required if `state` is `Enabled`.
+* `use_server_default` - (Optional) Should the default server policy be used? Defaults to `Disabled`.
 
 ## Attributes Reference
 
 The following attributes are exported:
 
 * `id` - The SQL Database ID.
-* `creation_data` - The creation date of the SQL Database.
+* `creation_date` - The creation date of the SQL Database.
 * `default_secondary_location` - The default secondary location of the SQL Database.
 
 ## Import

@@ -2,8 +2,6 @@ package azurerm
 
 import (
 	"testing"
-
-	"github.com/hashicorp/terraform/helper/acctest"
 )
 
 func TestValidateRFC3339Date(t *testing.T) {
@@ -46,91 +44,6 @@ func TestValidateRFC3339Date(t *testing.T) {
 	}
 }
 
-func TestValidateIntInSlice(t *testing.T) {
-
-	cases := []struct {
-		Input  []int
-		Value  int
-		Errors int
-	}{
-		{
-			Input:  []int{},
-			Value:  0,
-			Errors: 1,
-		},
-		{
-			Input:  []int{1},
-			Value:  1,
-			Errors: 0,
-		},
-		{
-			Input:  []int{1, 2, 3, 4, 5},
-			Value:  3,
-			Errors: 0,
-		},
-		{
-			Input:  []int{1, 3, 5},
-			Value:  3,
-			Errors: 0,
-		},
-		{
-			Input:  []int{1, 3, 5},
-			Value:  4,
-			Errors: 1,
-		},
-	}
-
-	for _, tc := range cases {
-		_, errors := validateIntInSlice(tc.Input)(tc.Value, "azurerm_postgresql_database")
-
-		if len(errors) != tc.Errors {
-			t.Fatalf("Expected the validateIntInSlice trigger a validation error for input: %+v looking for %+v", tc.Input, tc.Value)
-		}
-	}
-
-}
-
-func TestDBAccountName_validation(t *testing.T) {
-	str := acctest.RandString(50)
-	cases := []struct {
-		Value    string
-		ErrCount int
-	}{
-		{
-			Value:    "ab",
-			ErrCount: 1,
-		},
-		{
-			Value:    "abc",
-			ErrCount: 0,
-		},
-		{
-			Value:    "cosmosDBAccount1",
-			ErrCount: 1,
-		},
-		{
-			Value:    "hello-world",
-			ErrCount: 0,
-		},
-		{
-			Value:    str,
-			ErrCount: 0,
-		},
-		{
-			Value:    str + "a",
-			ErrCount: 1,
-		},
-	}
-
-	for _, tc := range cases {
-		_, errors := validateDBAccountName(tc.Value, "azurerm_cosmosdb_account")
-
-		if len(errors) != tc.ErrCount {
-			t.Fatalf("Expected the AzureRM CosmosDB Name to trigger a validation error for '%s'", tc.Value)
-		}
-	}
-}
-
 func TestValidateIso8601Duration(t *testing.T) {
 	cases := []struct {
 		Value  string
@@ -168,6 +81,99 @@ func TestValidateIso8601Duration(t *testing.T) {
 
 		if len(errors) != tc.Errors {
 			t.Fatalf("Expected validateIso8601Duration to trigger '%d' errors for '%s' - got '%d'", tc.Errors, tc.Value, len(errors))
+		}
+	}
+}
+
+func TestValidateCollation(t *testing.T) {
+	cases := []struct {
+		Value  string
+		Errors int
+	}{
+		{
+			Value:  "en-US",
+			Errors: 1,
+		},
+		{
+			Value:  "en_US",
+			Errors: 0,
+		},
+		{
+			Value:  "en US",
+			Errors: 0,
+		},
+		{
+			Value:  "English_United States.1252",
+			Errors: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		_, errors := validateCollation()(tc.Value, "collation")
+		if len(errors) != tc.Errors {
+			t.Fatalf("Expected validateCollation to trigger '%d' errors for '%s' - got '%d'", tc.Errors, tc.Value, len(errors))
+		}
+	}
+}
+
+func TestValidateAzureVirtualMachineTimeZone(t *testing.T) {
+	cases := []struct {
+		Value  string
+		Errors int
+	}{
+		{
+			Value:  "",
+			Errors: 0,
+		},
+		{
+			Value:  "UTC",
+			Errors: 0,
+		},
+		{
+			Value:  "China Standard Time",
+			Errors: 0,
+		},
+		{
+			// Valid UTC time zone
+			Value:  "utc-11",
+			Errors: 0,
+		},
+		{
+			// Invalid UTC time zone
+			Value:  "UTC-30",
+			Errors: 1,
+		},
+	}
+
+	for _, tc := range cases {
+		_, errors := validateAzureVirtualMachineTimeZone()(tc.Value, "unittest")
+
+		if len(errors) != tc.Errors {
+			t.Fatalf("Expected validateAzureVMTimeZone to trigger '%d' errors for '%s' - got '%d'", tc.Errors, tc.Value, len(errors))
+		}
+	}
+}
+
+func TestValidateAzureDataLakeStoreRemoteFilePath(t *testing.T) {
+	cases := []struct {
+		Value  string
+		Errors int
+	}{
+		{
+			Value:  "bad",
+			Errors: 1,
+		},
+		{
+			Value:  "/good/file/path",
+			Errors: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		_, errors := validateFilePath()(tc.Value, "unittest")
+
+		if len(errors) != tc.Errors {
+			t.Fatalf("Expected validateFilePath to trigger '%d' errors for '%s' - got '%d'", tc.Errors, tc.Value, len(errors))
 		}
 	}
 }

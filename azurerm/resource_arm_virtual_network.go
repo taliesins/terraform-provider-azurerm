@@ -7,9 +7,10 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2017-09-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -27,16 +28,23 @@ func resourceArmVirtualNetwork() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: validate.NoEmptyStrings,
 			},
+
+			"resource_group_name": resourceGroupNameSchema(),
+
+			"location": locationSchema(),
 
 			"address_space": {
 				Type:     schema.TypeList,
 				Required: true,
+				MinItems: 1,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:         schema.TypeString,
+					ValidateFunc: validate.NoEmptyStrings,
 				},
 			},
 
@@ -44,7 +52,8 @@ func resourceArmVirtualNetwork() *schema.Resource {
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:         schema.TypeString,
+					ValidateFunc: validate.NoEmptyStrings,
 				},
 			},
 
@@ -55,25 +64,27 @@ func resourceArmVirtualNetwork() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validate.NoEmptyStrings,
 						},
 						"address_prefix": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validate.NoEmptyStrings,
 						},
 						"security_group": {
 							Type:     schema.TypeString,
 							Optional: true,
 						},
+						"id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 					},
 				},
 				Set: resourceAzureSubnetHash,
 			},
-
-			"location": locationSchema(),
-
-			"resource_group_name": resourceGroupNameSchema(),
 
 			"tags": tagsSchema(),
 		},
@@ -87,10 +98,10 @@ func resourceArmVirtualNetworkCreate(d *schema.ResourceData, meta interface{}) e
 	log.Printf("[INFO] preparing arguments for Azure ARM virtual network creation.")
 
 	name := d.Get("name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	resGroup := d.Get("resource_group_name").(string)
 	tags := d.Get("tags").(map[string]interface{})
-	vnetProperties, vnetPropsErr := getVirtualNetworkProperties(ctx, d, meta)
+	vnetProperties, vnetPropsErr := expandVirtualNetworkProperties(ctx, d, meta)
 	if vnetPropsErr != nil {
 		return vnetPropsErr
 	}
@@ -99,7 +110,7 @@ func resourceArmVirtualNetworkCreate(d *schema.ResourceData, meta interface{}) e
 		Name:                           &name,
 		Location:                       &location,
 		VirtualNetworkPropertiesFormat: vnetProperties,
-		Tags: expandTags(tags),
+		Tags:                           expandTags(tags),
 	}
 
 	networkSecurityGroupNames := make([]string, 0)
@@ -124,8 +135,7 @@ func resourceArmVirtualNetworkCreate(d *schema.ResourceData, meta interface{}) e
 		return fmt.Errorf("Error Creating/Updating Virtual Network %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for completion of Virtual Network %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
@@ -162,40 +172,27 @@ func resourceArmVirtualNetworkRead(d *schema.ResourceData, meta interface{}) err
 		return fmt.Errorf("Error making Read request on Virtual Network %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
-	vnet := *resp.VirtualNetworkPropertiesFormat
-
-	// update appropriate values
-	d.Set("resource_group_name", resGroup)
 	d.Set("name", resp.Name)
-	d.Set("address_space", vnet.AddressSpace.AddressPrefixes)
-
+	d.Set("resource_group_name", resGroup)
 	if location := resp.Location; location != nil {
 		d.Set("location", azureRMNormalizeLocation(*location))
 	}
 
-	subnets := &schema.Set{
-		F: resourceAzureSubnetHash,
-	}
-
-	for _, subnet := range *vnet.Subnets {
-		s := map[string]interface{}{}
-
-		s["name"] = *subnet.Name
-		s["address_prefix"] = *subnet.SubnetPropertiesFormat.AddressPrefix
-		if subnet.SubnetPropertiesFormat.NetworkSecurityGroup != nil {
-			s["security_group"] = *subnet.SubnetPropertiesFormat.NetworkSecurityGroup.ID
+	if props := resp.VirtualNetworkPropertiesFormat; props != nil {
+		if space := props.AddressSpace; space != nil {
+			d.Set("address_space", space.AddressPrefixes)
 		}
 
-		subnets.Add(s)
-	}
-	d.Set("subnet", subnets)
-
-	if vnet.DhcpOptions != nil && vnet.DhcpOptions.DNSServers != nil {
-		dnses := []string{}
-		for _, dns := range *vnet.DhcpOptions.DNSServers {
-			dnses = append(dnses, dns)
+		subnets := flattenVirtualNetworkSubnets(props.Subnets)
+		if err := d.Set("subnet", subnets); err != nil {
+			return fmt.Errorf("Error setting `subnets`: %+v", err)
 		}
-		d.Set("dns_servers", dnses)
+
+		dnsServers := flattenVirtualNetworkDNSServers(props.DhcpOptions)
+		if err := d.Set("dns_servers", dnsServers); err != nil {
+			return fmt.Errorf("Error setting `dns_servers`: %+v", err)
+		}
+
 	}
 
 	flattenAndSetTags(d, resp.Tags)
@@ -227,29 +224,15 @@ func resourceArmVirtualNetworkDelete(d *schema.ResourceData, meta interface{}) e
 		return fmt.Errorf("Error deleting Virtual Network %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
-	err = future.WaitForCompletion(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for deletion of Virtual Network %q (Resource Group %q): %+v", name, resGroup, err)
 	}
 
 	return nil
 }
 
-func getVirtualNetworkProperties(ctx context.Context, d *schema.ResourceData, meta interface{}) (*network.VirtualNetworkPropertiesFormat, error) {
-	// first; get address space prefixes:
-	prefixes := []string{}
-	for _, prefix := range d.Get("address_space").([]interface{}) {
-		prefixes = append(prefixes, prefix.(string))
-	}
-
-	// then; the dns servers:
-	dnses := []string{}
-	for _, dns := range d.Get("dns_servers").([]interface{}) {
-		dnses = append(dnses, dns.(string))
-	}
-
-	// then; the subnets:
-	subnets := []network.Subnet{}
+func expandVirtualNetworkProperties(ctx context.Context, d *schema.ResourceData, meta interface{}) (*network.VirtualNetworkPropertiesFormat, error) {
+	subnets := make([]network.Subnet, 0)
 	if subs := d.Get("subnet").(*schema.Set); subs.Len() > 0 {
 		for _, subnet := range subs.List() {
 			subnet := subnet.(map[string]interface{})
@@ -291,25 +274,75 @@ func getVirtualNetworkProperties(ctx context.Context, d *schema.ResourceData, me
 
 	properties := &network.VirtualNetworkPropertiesFormat{
 		AddressSpace: &network.AddressSpace{
-			AddressPrefixes: &prefixes,
+			AddressPrefixes: utils.ExpandStringArray(d.Get("address_space").([]interface{})),
 		},
 		DhcpOptions: &network.DhcpOptions{
-			DNSServers: &dnses,
+			DNSServers: utils.ExpandStringArray(d.Get("dns_servers").([]interface{})),
 		},
 		Subnets: &subnets,
 	}
-	// finally; return the struct:
 	return properties, nil
+}
+func flattenVirtualNetworkSubnets(input *[]network.Subnet) *schema.Set {
+	results := &schema.Set{
+		F: resourceAzureSubnetHash,
+	}
+
+	if subnets := input; subnets != nil {
+		for _, subnet := range *input {
+			output := map[string]interface{}{}
+
+			if id := subnet.ID; id != nil {
+				output["id"] = *id
+			}
+
+			if name := subnet.Name; name != nil {
+				output["name"] = *name
+			}
+
+			if props := subnet.SubnetPropertiesFormat; props != nil {
+				if prefix := props.AddressPrefix; prefix != nil {
+					output["address_prefix"] = *prefix
+				}
+
+				if nsg := props.NetworkSecurityGroup; nsg != nil {
+					if nsg.ID != nil {
+						output["security_group"] = *nsg.ID
+					}
+				}
+			}
+
+			results.Add(output)
+		}
+	}
+
+	return results
+}
+
+func flattenVirtualNetworkDNSServers(input *network.DhcpOptions) []string {
+	results := make([]string, 0)
+
+	if input != nil {
+		if servers := input.DNSServers; servers != nil {
+			results = *servers
+		}
+	}
+
+	return results
 }
 
 func resourceAzureSubnetHash(v interface{}) int {
 	var buf bytes.Buffer
-	m := v.(map[string]interface{})
-	buf.WriteString(fmt.Sprintf("%s", m["name"].(string)))
-	buf.WriteString(fmt.Sprintf("%s", m["address_prefix"].(string)))
-	if v, ok := m["security_group"]; ok {
-		buf.WriteString(v.(string))
+
+	if m, ok := v.(map[string]interface{}); ok {
+		buf.WriteString(m["name"].(string))
+		buf.WriteString(m["address_prefix"].(string))
+
+		if v, ok := m["security_group"]; ok {
+			buf.WriteString(v.(string))
+		}
 	}
+
 	return hashcode.String(buf.String())
 }
 
@@ -327,8 +360,9 @@ func getExistingSubnet(ctx context.Context, resGroup string, vnetName string, su
 		return nil, err
 	}
 
-	existingSubnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{}
-	existingSubnet.SubnetPropertiesFormat.AddressPrefix = resp.SubnetPropertiesFormat.AddressPrefix
+	existingSubnet.SubnetPropertiesFormat = &network.SubnetPropertiesFormat{
+		AddressPrefix: resp.SubnetPropertiesFormat.AddressPrefix,
+	}
 
 	if resp.SubnetPropertiesFormat.NetworkSecurityGroup != nil {
 		existingSubnet.SubnetPropertiesFormat.NetworkSecurityGroup = resp.SubnetPropertiesFormat.NetworkSecurityGroup
@@ -339,11 +373,6 @@ func getExistingSubnet(ctx context.Context, resGroup string, vnetName string, su
 	}
 
 	if resp.SubnetPropertiesFormat.IPConfigurations != nil {
-		ips := make([]string, 0, len(*resp.SubnetPropertiesFormat.IPConfigurations))
-		for _, ip := range *resp.SubnetPropertiesFormat.IPConfigurations {
-			ips = append(ips, *ip.ID)
-		}
-
 		existingSubnet.SubnetPropertiesFormat.IPConfigurations = resp.SubnetPropertiesFormat.IPConfigurations
 	}
 

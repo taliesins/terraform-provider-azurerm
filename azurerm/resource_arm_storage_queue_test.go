@@ -51,11 +51,12 @@ func TestResourceAzureRMStorageQueueName_Validation(t *testing.T) {
 }
 
 func TestAccAzureRMStorageQueue_basic(t *testing.T) {
+	resourceName := "azurerm_storage_queue.test"
 	ri := acctest.RandInt()
 	rs := strings.ToLower(acctest.RandString(11))
 	config := testAccAzureRMStorageQueue_basic(ri, rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMStorageQueueDestroy,
@@ -63,8 +64,13 @@ func TestAccAzureRMStorageQueue_basic(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMStorageQueueExists("azurerm_storage_queue.test"),
+					testCheckAzureRMStorageQueueExists(resourceName),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -86,7 +92,8 @@ func testCheckAzureRMStorageQueueExists(name string) resource.TestCheckFunc {
 		}
 
 		armClient := testAccProvider.Meta().(*ArmClient)
-		queueClient, accountExists, err := armClient.getQueueServiceClientForStorageAccount(resourceGroup, storageAccountName)
+		ctx := armClient.StopContext
+		queueClient, accountExists, err := armClient.getQueueServiceClientForStorageAccount(ctx, resourceGroup, storageAccountName)
 		if err != nil {
 			return err
 		}
@@ -122,7 +129,8 @@ func testCheckAzureRMStorageQueueDestroy(s *terraform.State) error {
 		}
 
 		armClient := testAccProvider.Meta().(*ArmClient)
-		queueClient, accountExists, err := armClient.getQueueServiceClientForStorageAccount(resourceGroup, storageAccountName)
+		ctx := armClient.StopContext
+		queueClient, accountExists, err := armClient.getQueueServiceClientForStorageAccount(ctx, resourceGroup, storageAccountName)
 		if err != nil {
 			return nil
 		}
@@ -147,26 +155,26 @@ func testCheckAzureRMStorageQueueDestroy(s *terraform.State) error {
 func testAccAzureRMStorageQueue_basic(rInt int, rString string, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-    name = "acctestRG-%d"
-    location = "%s"
+  name     = "acctestRG-%d"
+  location = "%s"
 }
 
 resource "azurerm_storage_account" "test" {
-    name                     = "acctestacc%s"
-    resource_group_name      = "${azurerm_resource_group.test.name}"
-    location                 = "${azurerm_resource_group.test.location}"
-    account_tier             = "Standard"
-    account_replication_type = "LRS"
+  name                     = "acctestacc%s"
+  resource_group_name      = "${azurerm_resource_group.test.name}"
+  location                 = "${azurerm_resource_group.test.location}"
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 
-    tags {
-        environment = "staging"
-    }
+  tags {
+    environment = "staging"
+  }
 }
 
 resource "azurerm_storage_queue" "test" {
-    name = "mysamplequeue-%d"
-    resource_group_name = "${azurerm_resource_group.test.name}"
-    storage_account_name = "${azurerm_storage_account.test.name}"
+  name                 = "mysamplequeue-%d"
+  resource_group_name  = "${azurerm_resource_group.test.name}"
+  storage_account_name = "${azurerm_storage_account.test.name}"
 }
 `, rInt, location, rString, rInt)
 }

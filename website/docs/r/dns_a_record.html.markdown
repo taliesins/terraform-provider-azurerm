@@ -3,10 +3,10 @@ layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_dns_a_record"
 sidebar_current: "docs-azurerm-resource-dns-a-record"
 description: |-
-  Create a DNS A Record.
+  Manages a DNS A Record.
 ---
 
-# azurerm\_dns\_a\_record
+# azurerm_dns_a_record
 
 Enables you to manage DNS A Records within Azure DNS.
 
@@ -42,7 +42,7 @@ The following arguments are supported:
 
 * `zone_name` - (Required) Specifies the DNS Zone where the resource exists. Changing this forces a new resource to be created.
 
-* `TTL` - (Required) The Time To Live (TTL) of the DNS record.
+* `TTL` - (Required) The Time To Live (TTL) of the DNS record in seconds.
 
 * `records` - (Required) List of IPv4 Addresses.
 

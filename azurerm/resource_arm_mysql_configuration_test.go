@@ -11,12 +11,13 @@ import (
 )
 
 func TestAccAzureRMMySQLConfiguration_characterSetServer(t *testing.T) {
+	resourceName := "azurerm_mysql_configuration.test"
 	ri := acctest.RandInt()
 	location := testLocation()
 	config := testAccAzureRMMySQLConfiguration_characterSetServer(ri, location)
 	serverOnlyConfig := testAccAzureRMMySQLConfiguration_empty(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMMySQLConfigurationDestroy,
@@ -24,8 +25,13 @@ func TestAccAzureRMMySQLConfiguration_characterSetServer(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMMySQLConfigurationValue("azurerm_mysql_configuration.test", "hebrew"),
+					testCheckAzureRMMySQLConfigurationValue(resourceName, "hebrew"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			{
 				Config: serverOnlyConfig,
@@ -39,12 +45,13 @@ func TestAccAzureRMMySQLConfiguration_characterSetServer(t *testing.T) {
 }
 
 func TestAccAzureRMMySQLConfiguration_interactiveTimeout(t *testing.T) {
+	resourceName := "azurerm_mysql_configuration.test"
 	ri := acctest.RandInt()
 	location := testLocation()
 	config := testAccAzureRMMySQLConfiguration_interactiveTimeout(ri, location)
 	serverOnlyConfig := testAccAzureRMMySQLConfiguration_empty(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMMySQLConfigurationDestroy,
@@ -52,8 +59,13 @@ func TestAccAzureRMMySQLConfiguration_interactiveTimeout(t *testing.T) {
 			{
 				Config: config,
 				Check: resource.ComposeTestCheckFunc(
-					testCheckAzureRMMySQLConfigurationValue("azurerm_mysql_configuration.test", "30"),
+					testCheckAzureRMMySQLConfigurationValue(resourceName, "30"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			{
 				Config: serverOnlyConfig,
@@ -73,7 +85,7 @@ func TestAccAzureRMMySQLConfiguration_logSlowAdminStatements(t *testing.T) {
 	config := testAccAzureRMMySQLConfiguration_logSlowAdminStatements(ri, location)
 	serverOnlyConfig := testAccAzureRMMySQLConfiguration_empty(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMMySQLConfigurationDestroy,
@@ -83,6 +95,11 @@ func TestAccAzureRMMySQLConfiguration_logSlowAdminStatements(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMMySQLConfigurationValue(resourceName, "on"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			{
 				Config: serverOnlyConfig,
@@ -223,15 +240,21 @@ resource "azurerm_mysql_server" "test" {
   resource_group_name = "${azurerm_resource_group.test.name}"
 
   sku {
-    name     = "MYSQLB50"
-    capacity = 50
+    name     = "B_Gen4_2"
+    capacity = 2
     tier     = "Basic"
+    family   = "Gen4"
+  }
+
+  storage_profile {
+    storage_mb            = 51200
+    backup_retention_days = 7
+    geo_redundant_backup  = "Disabled"
   }
 
   administrator_login          = "acctestun"
   administrator_login_password = "H@Sh1CoR3!"
   version                      = "5.7"
-  storage_mb                   = 51200
   ssl_enforcement              = "Enabled"
 }
 `, rInt, location, rInt)

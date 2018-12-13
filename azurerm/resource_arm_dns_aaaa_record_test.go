@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/services/dns/mgmt/2016-04-01/dns"
+	"github.com/Azure/azure-sdk-for-go/services/preview/dns/mgmt/2018-03-01-preview/dns"
 	"github.com/hashicorp/terraform/helper/acctest"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
@@ -16,7 +16,7 @@ func TestAccAzureRMDnsAAAARecord_basic(t *testing.T) {
 	ri := acctest.RandInt()
 	config := testAccAzureRMDnsAAAARecord_basic(ri, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMDnsAaaaRecordDestroy,
@@ -26,6 +26,11 @@ func TestAccAzureRMDnsAAAARecord_basic(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMDnsAaaaRecordExists(resourceName),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -38,7 +43,7 @@ func TestAccAzureRMDnsAAAARecord_updateRecords(t *testing.T) {
 	preConfig := testAccAzureRMDnsAAAARecord_basic(ri, location)
 	postConfig := testAccAzureRMDnsAAAARecord_updateRecords(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMDnsAaaaRecordDestroy,
@@ -68,7 +73,7 @@ func TestAccAzureRMDnsAAAARecord_withTags(t *testing.T) {
 	preConfig := testAccAzureRMDnsAAAARecord_withTags(ri, location)
 	postConfig := testAccAzureRMDnsAAAARecord_withTagsUpdate(ri, location)
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMDnsAaaaRecordDestroy,
@@ -86,6 +91,11 @@ func TestAccAzureRMDnsAAAARecord_withTags(t *testing.T) {
 					testCheckAzureRMDnsAaaaRecordExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "1"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -153,7 +163,7 @@ func testCheckAzureRMDnsAaaaRecordDestroy(s *terraform.State) error {
 func testAccAzureRMDnsAAAARecord_basic(rInt int, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestRG_%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -175,7 +185,7 @@ resource "azurerm_dns_aaaa_record" "test" {
 func testAccAzureRMDnsAAAARecord_updateRecords(rInt int, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestRG_%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -197,7 +207,7 @@ resource "azurerm_dns_aaaa_record" "test" {
 func testAccAzureRMDnsAAAARecord_withTags(rInt int, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestRG_%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 
@@ -224,7 +234,7 @@ resource "azurerm_dns_aaaa_record" "test" {
 func testAccAzureRMDnsAAAARecord_withTagsUpdate(rInt int, location string) string {
 	return fmt.Sprintf(`
 resource "azurerm_resource_group" "test" {
-  name     = "acctestRG_%d"
+  name     = "acctestRG-%d"
   location = "%s"
 }
 

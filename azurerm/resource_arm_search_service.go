@@ -58,6 +58,16 @@ func resourceArmSearchService() *schema.Resource {
 				ForceNew: true,
 			},
 
+			"primary_key": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+
+			"secondary_key": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+
 			"tags": tagsForceNewSchema(),
 		},
 	}
@@ -68,7 +78,7 @@ func resourceArmSearchServiceCreateUpdate(d *schema.ResourceData, meta interface
 	ctx := meta.(*ArmClient).StopContext
 
 	name := d.Get("name").(string)
-	location := d.Get("location").(string)
+	location := azureRMNormalizeLocation(d.Get("location").(string))
 	resourceGroupName := d.Get("resource_group_name").(string)
 	skuName := d.Get("sku").(string)
 	tags := d.Get("tags").(map[string]interface{})
@@ -92,8 +102,7 @@ func resourceArmSearchServiceCreateUpdate(d *schema.ResourceData, meta interface
 		properties.ServiceProperties.PartitionCount = utils.Int32(partitionCount)
 	}
 
-	_, err := client.CreateOrUpdate(ctx, resourceGroupName, name, properties, nil)
-	if err != nil {
+	if _, err := client.CreateOrUpdate(ctx, resourceGroupName, name, properties, nil); err != nil {
 		return err
 	}
 
@@ -147,6 +156,13 @@ func resourceArmSearchServiceRead(d *schema.ResourceData, meta interface{}) erro
 		if count := props.ReplicaCount; count != nil {
 			d.Set("replica_count", int(*count))
 		}
+	}
+
+	adminKeysClient := meta.(*ArmClient).searchAdminKeysClient
+	adminKeysResp, err := adminKeysClient.Get(ctx, resourceGroup, name, nil)
+	if err == nil {
+		d.Set("primary_key", adminKeysResp.PrimaryKey)
+		d.Set("secondary_key", adminKeysResp.SecondaryKey)
 	}
 
 	flattenAndSetTags(d, resp.Tags)

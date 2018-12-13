@@ -6,6 +6,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/servicebus/mgmt/2017-04-01/servicebus"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -21,21 +22,24 @@ func resourceArmServiceBusSubscription() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateServiceBusSubscriptionName(),
 			},
 
 			"namespace_name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateServiceBusNamespaceName(),
 			},
 
 			"topic_name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateServiceBusTopicName(),
 			},
 
 			"location": deprecatedLocationSchema(),
@@ -82,6 +86,11 @@ func resourceArmServiceBusSubscription() *schema.Resource {
 				ForceNew: true,
 			},
 
+			"forward_to": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+
 			// TODO: remove in the next major version
 			"dead_lettering_on_filter_evaluation_exceptions": {
 				Type:       schema.TypeBool,
@@ -124,8 +133,15 @@ func resourceArmServiceBusSubscriptionCreate(d *schema.ResourceData, meta interf
 		parameters.SBSubscriptionProperties.LockDuration = &lockDuration
 	}
 
-	_, err := client.CreateOrUpdate(ctx, resourceGroup, namespaceName, topicName, name, parameters)
-	if err != nil {
+	if forwardTo := d.Get("forward_to").(string); forwardTo != "" {
+		parameters.SBSubscriptionProperties.ForwardTo = &forwardTo
+	}
+
+	if defaultMessageTtl := d.Get("default_message_ttl").(string); defaultMessageTtl != "" {
+		parameters.DefaultMessageTimeToLive = &defaultMessageTtl
+	}
+
+	if _, err := client.CreateOrUpdate(ctx, resourceGroup, namespaceName, topicName, name, parameters); err != nil {
 		return err
 	}
 
@@ -176,6 +192,7 @@ func resourceArmServiceBusSubscriptionRead(d *schema.ResourceData, meta interfac
 		d.Set("dead_lettering_on_message_expiration", props.DeadLetteringOnMessageExpiration)
 		d.Set("enable_batched_operations", props.EnableBatchedOperations)
 		d.Set("requires_session", props.RequiresSession)
+		d.Set("forward_to", props.ForwardTo)
 
 		if count := props.MaxDeliveryCount; count != nil {
 			d.Set("max_delivery_count", int(*count))
